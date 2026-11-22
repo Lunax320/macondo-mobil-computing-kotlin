@@ -7,7 +7,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.macondo.data.Servicio
@@ -77,19 +76,28 @@ fun InicioScreen(
 @Composable
 fun HabitacionesScreen(catalogo: CatalogRepository, abrirTipo: (Long) -> Unit) {
     val model = screenModel("habitaciones", catalogo::tipos)
-    var personas by rememberSaveable { mutableStateOf("") }
+    var personas by rememberSaveable { mutableIntStateOf(1) }
     var categoria by rememberSaveable { mutableStateOf("") }
-    var noches by rememberSaveable { mutableStateOf("") }
+    var estimarNoches by rememberSaveable { mutableStateOf(false) }
+    var noches by rememberSaveable { mutableIntStateOf(1) }
     RemotePage("Habitaciones", model) { tipos, _ ->
-        Field("Huéspedes", personas, tipo = KeyboardType.Number) { personas = it.filter(Char::isDigit) }
-        Field("Buscar una categoría", categoria) { categoria = it }
-        Field("Noches (para estimar la tarifa)", noches, tipo = KeyboardType.Number) { noches = it.filter(Char::isDigit) }
+        val capacidadMaxima = tipos.maxOfOrNull { it.capacidadPersonas } ?: 1
+        FormSection("Encuentra tu habitación", "Ajusta los filtros para comparar las categorías disponibles.") {
+            if (capacidadMaxima > 1) {
+                SliderField("Huéspedes", personas, range = 1..capacidadMaxima, unit = "personas") { personas = it }
+            } else {
+                Text("Huéspedes · 1")
+            }
+            Field("Buscar categoría", categoria) { categoria = it }
+            SwitchField("Estimar el total", estimarNoches, { estimarNoches = it }, "Calcula la tarifa según el número de noches.")
+            if (estimarNoches) StepperField("Noches", noches) { noches = it }
+        }
         val filtrados = tipos.filter {
-            it.capacidadPersonas >= (personas.toIntOrNull() ?: 0) &&
+            it.capacidadPersonas >= personas &&
                 it.nombre.contains(categoria.trim(), ignoreCase = true)
         }
         if (filtrados.isEmpty()) Text("No hay categorías que coincidan con los filtros.")
-        filtrados.forEach { TipoCard(it, abrirTipo, noches.toIntOrNull()?.takeIf { cantidad -> cantidad > 0 }) }
+        filtrados.forEach { TipoCard(it, abrirTipo, noches.takeIf { estimarNoches }) }
     }
 }
 

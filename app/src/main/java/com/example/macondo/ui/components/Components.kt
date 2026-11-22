@@ -1,6 +1,7 @@
 package com.example.macondo.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -20,6 +21,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.macondo.data.TipoHabitacion
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.macondo.ui.ScreenModel
@@ -29,6 +31,7 @@ import java.text.NumberFormat
 import java.time.LocalDate
 import java.time.ZoneOffset
 import java.util.Locale
+import kotlin.math.roundToInt
 
 @Composable
 fun Page(
@@ -88,6 +91,38 @@ fun Panel(contenido: @Composable ColumnScope.() -> Unit) {
 }
 
 @Composable
+fun TipoHabitacionOption(tipo: TipoHabitacion, selected: Boolean, onClick: () -> Unit) {
+    OutlinedCard(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.outlinedCardColors(
+            containerColor = if (selected) MaterialTheme.colorScheme.secondaryContainer
+            else MaterialTheme.colorScheme.surface
+        )
+    ) {
+        Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            HotelImage(tipo.imagen, tipo.nombre, Modifier.width(88.dp).height(82.dp))
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(tipo.nombre, style = MaterialTheme.typography.titleMedium)
+                Text("Hasta ${tipo.capacidadPersonas} huéspedes", style = MaterialTheme.typography.bodyMedium)
+                Text("${moneda(tipo.precioNoche)} por noche", style = MaterialTheme.typography.labelLarge)
+            }
+            if (selected) Text("✓", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
+        }
+    }
+}
+
+@Composable
+fun FormSection(titulo: String, ayuda: String? = null, contenido: @Composable ColumnScope.() -> Unit) {
+    Panel {
+        Section(titulo)
+        ayuda?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        contenido()
+    }
+}
+
+@Composable
 fun Section(titulo: String) = Text(titulo, style = MaterialTheme.typography.titleLarge)
 
 @Composable
@@ -112,8 +147,11 @@ fun Field(
     tipo: KeyboardType = KeyboardType.Text,
     multilinea: Boolean = false,
     readOnly: Boolean = false,
+    isError: Boolean = false,
+    supportingText: String? = null,
     onChange: (String) -> Unit
 ) {
+    var mostrarClave by rememberSaveable(label) { mutableStateOf(false) }
     OutlinedTextField(
         value = value,
         onValueChange = onChange,
@@ -121,9 +159,138 @@ fun Field(
         modifier = Modifier.fillMaxWidth(),
         singleLine = !multilinea,
         readOnly = readOnly,
+        isError = isError,
+        supportingText = supportingText?.let { texto -> { Text(texto) } },
+        trailingIcon = if (secret) {
+            { TextButton(onClick = { mostrarClave = !mostrarClave }) { Text(if (mostrarClave) "Ocultar" else "Ver") } }
+        } else null,
         keyboardOptions = KeyboardOptions(keyboardType = if (secret) KeyboardType.Password else tipo),
-        visualTransformation = if (secret) PasswordVisualTransformation() else VisualTransformation.None
+        visualTransformation = if (secret && !mostrarClave) PasswordVisualTransformation() else VisualTransformation.None
     )
+}
+
+@Composable
+fun <T> ChoiceChips(
+    label: String,
+    actual: T,
+    opciones: List<T>,
+    texto: (T) -> String,
+    seleccionar: (T) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(label, style = MaterialTheme.typography.labelLarge)
+        Row(
+            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            opciones.forEach { opcion ->
+                FilterChip(
+                    selected = actual == opcion,
+                    onClick = { seleccionar(opcion) },
+                    label = { Text(texto(opcion)) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun SliderField(
+    label: String,
+    value: Int,
+    range: IntRange,
+    unit: String = "",
+    onChange: (Int) -> Unit
+) {
+    require(range.first < range.last) { "El slider necesita un rango de al menos dos valores." }
+    val valorSeguro = value.coerceIn(range)
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(label, Modifier.weight(1f), style = MaterialTheme.typography.labelLarge)
+            Text(valorConUnidad(valorSeguro, unit), style = MaterialTheme.typography.titleMedium)
+        }
+        Slider(
+            value = valorSeguro.toFloat(),
+            onValueChange = { onChange(it.roundToInt().coerceIn(range)) },
+            valueRange = range.first.toFloat()..range.last.toFloat(),
+            steps = (range.last - range.first - 1).coerceAtLeast(0)
+        )
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(valorConUnidad(range.first, unit), style = MaterialTheme.typography.labelSmall)
+            Text(valorConUnidad(range.last, unit), style = MaterialTheme.typography.labelSmall)
+        }
+    }
+}
+
+private fun valorConUnidad(valor: Int, unidad: String): String {
+    val unidadVisible = if (valor == 1) when (unidad) {
+        "personas" -> "persona"
+        "huéspedes" -> "huésped"
+        else -> unidad
+    } else unidad
+    return listOf(valor.toString(), unidadVisible).filter(String::isNotBlank).joinToString(" ")
+}
+
+@Composable
+fun StepperField(label: String, value: Int, minimo: Int = 1, maximo: Int = Int.MAX_VALUE, onChange: (Int) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(label, style = MaterialTheme.typography.labelLarge)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            OutlinedButton(onClick = { onChange((value - 1).coerceAtLeast(minimo)) }, enabled = value > minimo) {
+                Text("−", style = MaterialTheme.typography.titleLarge)
+            }
+            Text(value.toString(), style = MaterialTheme.typography.titleLarge)
+            OutlinedButton(onClick = { onChange(if (value >= maximo) maximo else value + 1) }, enabled = value < maximo) {
+                Text("+", style = MaterialTheme.typography.titleLarge)
+            }
+        }
+    }
+}
+
+@Composable
+fun SwitchField(label: String, checked: Boolean, onChange: (Boolean) -> Unit, ayuda: String? = null) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text(label, style = MaterialTheme.typography.titleSmall)
+            ayuda?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        }
+        Switch(checked = checked, onCheckedChange = onChange)
+    }
+}
+
+@Composable
+fun TagEditor(label: String, items: List<String>, onItemsChange: (List<String>) -> Unit) {
+    var nuevo by rememberSaveable(label) { mutableStateOf("") }
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(label, style = MaterialTheme.typography.labelLarge)
+        if (items.isNotEmpty()) {
+            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items.forEach { item ->
+                    InputChip(
+                        selected = true,
+                        onClick = { onItemsChange(items.filterNot { it == item }) },
+                        label = { Text("$item  ×") }
+                    )
+                }
+            }
+        }
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedTextField(
+                value = nuevo,
+                onValueChange = { nuevo = it },
+                modifier = Modifier.weight(1f),
+                label = { Text("Añadir elemento") },
+                singleLine = true
+            )
+            TextButton(
+                enabled = nuevo.isNotBlank() && items.none { it.equals(nuevo.trim(), ignoreCase = true) },
+                onClick = {
+                    onItemsChange(items + nuevo.trim())
+                    nuevo = ""
+                }
+            ) { Text("Añadir") }
+        }
+    }
 }
 
 @Composable

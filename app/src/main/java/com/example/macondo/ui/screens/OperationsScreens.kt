@@ -25,7 +25,8 @@ fun OperadorReservasScreen(operaciones: OperationsRepository, abrir: (String) ->
     var filtro by rememberSaveable { mutableStateOf("TODAS") }
     var consulta by rememberSaveable { mutableStateOf("") }
     RemotePage("Reservas del hotel", model) { reservas, _ ->
-        Selector("Estado", filtro, listOf("TODAS", "CONFIRMADA", "ACTIVA", "FINALIZADA", "CANCELADA"), { it }) { filtro = it }
+        ChoiceChips("Filtrar reservas", filtro, listOf("TODAS", "CONFIRMADA", "ACTIVA", "FINALIZADA", "CANCELADA"),
+            { if (it == "TODAS") "Todas" else it.lowercase().replaceFirstChar(Char::uppercase) }) { filtro = it }
         Field("Buscar por código, habitación o huésped", consulta) { consulta = it }
         val visibles = reservas.filter { reserva ->
             val texto = listOf(reserva.numeroReserva, reserva.habitacion?.numero, reserva.cliente?.nombreCompleto)
@@ -108,7 +109,7 @@ fun CuentaScreen(
 ) {
     val model = screenModel("cuenta:$reservaId:$checkout") { operaciones.cuenta(reservaId) }
     var servicioId by rememberSaveable { mutableStateOf<Long?>(null) }
-    var cantidad by rememberSaveable { mutableStateOf("1") }
+    var cantidad by rememberSaveable { mutableIntStateOf(1) }
     var medio by rememberSaveable { mutableStateOf("EFECTIVO") }
     var eliminar by remember { mutableStateOf<Consumo?>(null) }
     var confirmarPago by rememberSaveable { mutableStateOf(false) }
@@ -121,12 +122,12 @@ fun CuentaScreen(
         if (cuenta == null) {
             Text("La reserva no tiene una cuenta asociada.")
         } else {
+            val pagos = cuenta.pagos.orEmpty()
+            val saldo = cuenta.total.subtract(pagos.filter { it.estado == "CONFIRMADO" }
+                .fold(java.math.BigDecimal.ZERO) { total, pago -> total.add(pago.monto) })
             Panel {
                 Section("Cuenta ${cuenta.estado.lowercase()}")
                 Text("Total · ${moneda(cuenta.total)}")
-                val pagos = cuenta.pagos.orEmpty()
-                val saldo = cuenta.total.subtract(pagos.filter { it.estado == "CONFIRMADO" }
-                    .fold(java.math.BigDecimal.ZERO) { total, pago -> total.add(pago.monto) })
                 Text("Saldo · ${moneda(saldo)}")
                 pagos.forEach { Text("${it.metodoPago} · ${moneda(it.monto)} · ${it.estado}") }
             }
@@ -146,19 +147,25 @@ fun CuentaScreen(
             }
             if (abierta && !checkout) {
                 val servicio = datos.servicios.firstOrNull { it.id == servicioId }
-                Selector("Servicio", servicio, datos.servicios, { it.nombre }) { servicioId = it.id }
-                Field("Cantidad", cantidad, tipo = KeyboardType.Number) { cantidad = it.filter(Char::isDigit) }
-                Primary("Agregar consumo", servicioId != null && (cantidad.toIntOrNull() ?: 0) > 0 && operable) {
+                FormSection("Añadir consumo", "Selecciona el servicio y define cuántas unidades se cargan.") {
+                    Selector("Servicio", servicio, datos.servicios, { it.nombre }) { servicioId = it.id }
+                    StepperField("Cantidad", cantidad) { cantidad = it }
+                    servicio?.let { Text("Precio por unidad · ${moneda(it.precio)}") }
+                }
+                Primary("Agregar consumo", servicioId != null && cantidad > 0 && operable) {
                     val id = servicioId ?: return@Primary
-                    val unidades = cantidad.toIntOrNull() ?: return@Primary
                     model.ejecutar("Consumo agregado") {
-                        operaciones.agregarConsumos(reserva.numeroReserva, listOf(ConsumoSolicitud(id, unidades)))
+                        operaciones.agregarConsumos(reserva.numeroReserva, listOf(ConsumoSolicitud(id, cantidad)))
                     }
                 }
             }
             if (checkout && reserva.estado == "ACTIVA") {
                 if (abierta) {
-                    Selector("Método de pago", medio, listOf("EFECTIVO", "TARJETA", "TRANSFERENCIA"), { it }) { medio = it }
+                    FormSection("Método de pago", "Selecciona cómo se recibió el saldo.") {
+                        ChoiceChips("Medio", medio, listOf("EFECTIVO", "TARJETA", "TRANSFERENCIA"),
+                            { it.lowercase().replaceFirstChar(Char::uppercase) }) { medio = it }
+                        Text("Saldo pendiente · ${moneda(saldo)}")
+                    }
                     Primary("Registrar pago", operable) { confirmarPago = true }
                 }
                 Primary("Finalizar estadía", operable && cuenta.estado == "PAGADA") { confirmarSalida = true }

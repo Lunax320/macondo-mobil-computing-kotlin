@@ -4,7 +4,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
@@ -142,20 +145,49 @@ fun ReservaFormScreen(
             else DisponibilidadConsulta(seleccionado, ReservaSolicitud(entrada, salida, cantidad))
         }
         val resultado = disponibilidad.takeIf { it.consulta == consulta }
-        Selector("Tipo de habitación", tipo, datos.tipos, { it.nombre }) {
-            tipoId = it.id
-            disponibilidadModel.invalidar()
+        FormSection("Elige tu habitación", "Compara capacidad y tarifa antes de consultar fechas.") {
+            if (datos.tipos.isEmpty()) Text("No hay categorías disponibles por el momento.")
+            datos.tipos.forEach { opcion ->
+                TipoHabitacionOption(opcion, selected = opcion.id == tipoId) {
+                    tipoId = opcion.id
+                    if (personas.toIntOrNull()?.let { it > opcion.capacidadPersonas } == true) {
+                        personas = opcion.capacidadPersonas.toString()
+                    }
+                    disponibilidadModel.invalidar()
+                }
+            }
         }
-        DateField("Entrada", entrada) { entrada = it; disponibilidadModel.invalidar() }
-        DateField("Salida", salida) { salida = it; disponibilidadModel.invalidar() }
-        Field("Huéspedes", personas, tipo = KeyboardType.Number) {
-            personas = it.filter(Char::isDigit)
-            disponibilidadModel.invalidar()
+        FormSection("Fechas de estadía", "Selecciona primero la entrada y luego la salida.") {
+            DateField("Entrada", entrada) { entrada = it; disponibilidadModel.invalidar() }
+            DateField("Salida", salida) { salida = it; disponibilidadModel.invalidar() }
+            if (fechaInicio != null && fechaFin != null && fechaFin.isAfter(fechaInicio)) {
+                val noches = java.time.temporal.ChronoUnit.DAYS.between(fechaInicio, fechaFin)
+                Text("$noches ${if (noches == 1L) "noche" else "noches"} · ${moneda(tipo?.precioNoche?.multiply(noches.toBigDecimal()))}",
+                    style = MaterialTheme.typography.titleMedium)
+            }
+            if (fechaInicio != null && fechaInicio.isBefore(LocalDate.now())) {
+                Text("La entrada debe ser hoy o después.", color = MaterialTheme.colorScheme.error)
+            }
+            if (fechaInicio != null && fechaFin != null && !fechaFin.isAfter(fechaInicio)) {
+                Text("La salida debe ser posterior a la entrada.", color = MaterialTheme.colorScheme.error)
+            }
         }
-        if (tipo != null) Text("Capacidad máxima · ${tipo.capacidadPersonas} · ${moneda(tipo.precioNoche)} por noche")
-        if (fechaInicio != null && fechaInicio.isBefore(LocalDate.now())) Text("La entrada debe ser hoy o después.")
-        if (fechaInicio != null && fechaFin != null && !fechaFin.isAfter(fechaInicio)) {
-            Text("La salida debe ser posterior a la entrada.")
+        tipo?.let { tipoSeleccionado ->
+            FormSection("Huéspedes", "Máximo ${tipoSeleccionado.capacidadPersonas} para esta categoría.") {
+                if (tipoSeleccionado.capacidadPersonas > 1) {
+                    SliderField(
+                        "Personas",
+                        cantidad ?: 1,
+                        range = 1..tipoSeleccionado.capacidadPersonas,
+                        unit = if (cantidad == 1) "huésped" else "huéspedes"
+                    ) {
+                        personas = it.toString()
+                        disponibilidadModel.invalidar()
+                    }
+                } else {
+                    Text("Esta habitación admite 1 huésped.")
+                }
+            }
         }
 
         Primary("Consultar disponibilidad", consulta != null && resultado?.cargando != true && !estado.guardando) {
@@ -164,15 +196,19 @@ fun ReservaFormScreen(
                 reservas.buscarDisponibilidad(clienteId, criterios.tipoId, criterios.solicitud, reservaId)
             }
         }
-        if (resultado?.cargando == true) LinearProgressIndicator()
-        resultado?.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-        resultado?.unidades?.let { unidades ->
-            Text(if (unidades.isEmpty()) "Sin habitaciones disponibles para esas fechas."
-                else "${unidades.size} habitaciones disponibles. El hotel asignará una al confirmar.")
-            if (unidades.isNotEmpty() && consulta != null) {
-                Primary(if (reservaId == null) "Confirmar reserva" else "Guardar cambios", !estado.guardando) {
-                    model.ejecutar("Reserva guardada", recargar = false) {
-                        alGuardar(reservas.guardar(clienteId, consulta.tipoId, consulta.solicitud, reservaId))
+        resultado?.let { disponibilidadActual ->
+            FormSection("Disponibilidad") {
+                if (disponibilidadActual.cargando) LinearProgressIndicator(Modifier.fillMaxWidth())
+                disponibilidadActual.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                disponibilidadActual.unidades?.let { unidades ->
+                    Text(if (unidades.isEmpty()) "No hay habitaciones para estas fechas. Prueba otros días."
+                        else "Encontramos ${unidades.size} ${if (unidades.size == 1) "habitación" else "habitaciones"}.")
+                    if (unidades.isNotEmpty() && consulta != null) {
+                        Primary(if (reservaId == null) "Confirmar reserva" else "Guardar cambios", !estado.guardando) {
+                            model.ejecutar("Reserva guardada", recargar = false) {
+                                alGuardar(reservas.guardar(clienteId, consulta.tipoId, consulta.solicitud, reservaId))
+                            }
+                        }
                     }
                 }
             }
@@ -191,7 +227,7 @@ fun HistorialScreen(reservas: ReservationRepository, cuentas: AccountRepository,
 
     RemotePage("Historial de reservas", model) { datos, estado ->
         if (datos.comentarios == null) Text("Los comentarios no están disponibles en este servidor.")
-        Selector("Estado", filtro, listOf("TODAS", "FINALIZADA", "CANCELADA"), { it }) { filtro = it }
+        ChoiceChips("Filtrar por estado", filtro, listOf("TODAS", "FINALIZADA", "CANCELADA"), { it }) { filtro = it }
         val visibles = datos.reservas.filter { filtro == "TODAS" || it.estado == filtro }
         if (visibles.isEmpty()) Text("No hay reservas en el historial para este filtro.")
         visibles.forEach { reserva ->
@@ -221,7 +257,7 @@ fun HistorialScreen(reservas: ReservationRepository, cuentas: AccountRepository,
                 title = { Text(if (comentario == null) "Comentar estadía" else "Editar comentario") },
                 text = {
                     Column {
-                        Selector("Calificación", calificacion, (1..5).toList(), { "$it de 5" }) { calificacion = it }
+                        ChoiceChips("Tu calificación", calificacion, (1..5).toList(), { "$it ★" }) { calificacion = it }
                         Field("Tu comentario", texto, multilinea = true) { if (it.length <= 500) texto = it }
                     }
                 },
@@ -281,11 +317,15 @@ fun PerfilScreen(cuentas: AccountRepository, clienteId: Long) {
             }
         }
         HorizontalDivider()
-        Secondary("Cambiar contraseña") { cambiarClave = !cambiarClave }
+        SwitchField("Cambiar contraseña", cambiarClave, { cambiarClave = it }, "Muestra el formulario de actualización de clave.")
         if (cambiarClave) {
-            Field("Contraseña actual", actual, secret = true) { actual = it }
-            Field("Nueva contraseña", nueva, secret = true) { nueva = it }
-            Field("Confirmar nueva contraseña", confirmacion, secret = true) { confirmacion = it }
+            FormSection("Actualizar contraseña") {
+                Field("Contraseña actual", actual, secret = true) { actual = it }
+                Field("Nueva contraseña", nueva, secret = true) { nueva = it }
+                val noCoinciden = confirmacion.isNotBlank() && nueva != confirmacion
+                Field("Confirmar nueva contraseña", confirmacion, secret = true, isError = noCoinciden,
+                    supportingText = if (noCoinciden) "Las contraseñas no coinciden." else null) { confirmacion = it }
+            }
             Primary("Actualizar contraseña", actual.isNotBlank() && nueva.isNotBlank() &&
                 nueva == confirmacion && !estado.guardando) {
                 val solicitud = ClaveSolicitud(actual, nueva, confirmacion)

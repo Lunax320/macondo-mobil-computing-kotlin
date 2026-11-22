@@ -1,10 +1,13 @@
 package com.example.macondo.ui.screens
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.dp
 import com.example.macondo.data.*
 import com.example.macondo.data.repository.AdminRepository
 import com.example.macondo.data.repository.CatalogRepository
@@ -85,18 +88,39 @@ fun AdminHabitacionFormScreen(admin: AdminRepository, catalogo: CatalogRepositor
         var capacidad by rememberSaveable(habitacion?.id) { mutableStateOf(habitacion?.capacidad?.toString().orEmpty()) }
         var piso by rememberSaveable(habitacion?.id) { mutableStateOf(habitacion?.piso?.toString() ?: "1") }
         var estadoHabitacion by rememberSaveable(habitacion?.id) { mutableStateOf(habitacion?.estado ?: "DISPONIBLE") }
-        Selector("Tipo de habitación", tipos.firstOrNull { it.id == tipoId }, tipos, { it.nombre }) {
-            tipoId = it.id
-            capacidad = it.capacidadPersonas.toString()
+        val tipoSeleccionado = tipos.firstOrNull { it.id == tipoId }
+        FormSection("Identificación", "Asocia el espacio físico con una categoría del hotel.") {
+            if (tipos.isEmpty()) Text("Primero registra un tipo de habitación.")
+            tipos.forEach { opcion ->
+                TipoHabitacionOption(opcion, selected = opcion.id == tipoId) {
+                    tipoId = opcion.id
+                    capacidad = opcion.capacidadPersonas.toString()
+                }
+            }
+            Field("Nombre de la habitación", nombre, isError = nombre.isNotBlank() && nombre.trim().length < 2,
+                supportingText = if (nombre.isNotBlank() && nombre.trim().length < 2) "Usa al menos dos caracteres." else null) { nombre = it }
+            Field("Número", numero) { if (it.length <= 10) numero = it }
+            Field("Etiqueta opcional", etiqueta) { etiqueta = it }
         }
-        Field("Nombre", nombre) { nombre = it }
-        Field("Número", numero) { if (it.length <= 10) numero = it }
-        Field("Piso", piso, tipo = KeyboardType.Number) { piso = it.filter(Char::isDigit) }
-        Field("Capacidad", capacidad, tipo = KeyboardType.Number) { capacidad = it.filter(Char::isDigit) }
-        Field("Etiqueta", etiqueta) { etiqueta = it }
-        Selector("Estado", estadoHabitacion, listOf("DISPONIBLE", "NO_DISPONIBLE"), { it }) { estadoHabitacion = it }
-        val valido = tipoId != null && nombre.isNotBlank() && numero.isNotBlank() &&
-            (piso.toIntOrNull() ?: 0) > 0 && (capacidad.toIntOrNull() ?: 0) > 0
+        FormSection("Distribución", "La capacidad no puede superar la categoría seleccionada.") {
+            StepperField("Piso", piso.toIntOrNull() ?: 1) { piso = it.toString() }
+            if (tipoSeleccionado != null && tipoSeleccionado.capacidadPersonas > 1) {
+                SliderField("Capacidad", capacidad.toIntOrNull() ?: 1,
+                    range = 1..tipoSeleccionado.capacidadPersonas, unit = "personas") { capacidad = it.toString() }
+            } else if (tipoSeleccionado != null) {
+                Text("Esta categoría admite 1 huésped.")
+            } else {
+                Text("Selecciona una categoría para definir la capacidad.")
+            }
+        }
+        FormSection("Estado de la habitación") {
+            ChoiceChips("Disponibilidad", estadoHabitacion, listOf("DISPONIBLE", "NO_DISPONIBLE"),
+                { if (it == "DISPONIBLE") "Disponible" else "Fuera de servicio" }) { estadoHabitacion = it }
+        }
+        val capacidadValor = capacidad.toIntOrNull() ?: 0
+        val capacidadValida = tipoSeleccionado?.let { capacidadValor in 1..it.capacidadPersonas } == true
+        val valido = tipoId != null && nombre.trim().length >= 2 && numero.isNotBlank() &&
+            (piso.toIntOrNull() ?: 0) > 0 && capacidadValida
         Primary("Guardar habitación", valido && !estado.guardando) {
             val tipo = tipoId ?: return@Primary
             val solicitud = HabitacionSolicitud(id, IdTipo(tipo), nombre.trim(), etiqueta.trim().ifBlank { null },
@@ -156,13 +180,17 @@ private fun TipoForm(tipo: TipoHabitacion?, guardando: Boolean, guardar: (TipoHa
     var precio by rememberSaveable(tipo?.id) { mutableStateOf(tipo?.precioNoche?.toPlainString().orEmpty()) }
     var capacidad by rememberSaveable(tipo?.id) { mutableStateOf(tipo?.capacidadPersonas?.toString().orEmpty()) }
 
-    Section(if (tipo == null) "Nuevo tipo" else "Editar tipo")
-    Field("Nombre", nombre) { nombre = it }
-    Field("Descripción", descripcion, multilinea = true) { descripcion = it }
-    Field("Ruta o URL de imagen", imagen) { imagen = it }
-    Field("Precio por noche", precio, tipo = KeyboardType.Decimal) { precio = it }
-    Field("Capacidad", capacidad, tipo = KeyboardType.Number) { capacidad = it.filter(Char::isDigit) }
     val valor = precio.trim().replace(',', '.').toBigDecimalOrNull()
+    val precioInvalido = precio.isNotBlank() && (valor == null || valor.signum() < 0)
+    FormSection(if (tipo == null) "Nuevo tipo" else "Editar tipo", "La tarifa se cobra por noche.") {
+        Field("Nombre", nombre) { nombre = it }
+        Field("Descripción", descripcion, multilinea = true) { descripcion = it }
+        Field("Ruta o URL de imagen", imagen) { imagen = it }
+        if (imagen.isNotBlank()) HotelImage(imagen, nombre.ifBlank { "Vista previa" }, Modifier.fillMaxWidth().height(160.dp))
+        Field("Precio por noche", precio, tipo = KeyboardType.Decimal, isError = precioInvalido,
+            supportingText = if (precioInvalido) "Escribe un valor válido mayor o igual a cero." else "Usa un valor mayor o igual a cero.") { precio = it }
+        StepperField("Capacidad máxima", capacidad.toIntOrNull() ?: 1) { capacidad = it.toString() }
+    }
     val personas = capacidad.toIntOrNull()
     Primary("Guardar tipo", nombre.isNotBlank() && valor != null && valor.signum() >= 0 &&
         personas != null && personas > 0 && !guardando) {
@@ -208,20 +236,34 @@ fun AdminServicioFormScreen(admin: AdminRepository, catalogo: CatalogRepository,
         var horario by rememberSaveable(servicio.id) { mutableStateOf(servicio.horario.orEmpty()) }
         var incluidos by rememberSaveable(servicio.id) { mutableStateOf(servicio.incluidos.orEmpty().joinToString("\n")) }
         var etiquetas by rememberSaveable(servicio.id) { mutableStateOf(servicio.etiquetas.orEmpty().joinToString("\n")) }
-
-        Field("Nombre", nombre) { nombre = it }
-        Field("Descripción", descripcion, multilinea = true) { descripcion = it }
-        Field("Categoría", categoria) { categoria = it }
-        Field("Ruta o URL de imagen", imagen) { imagen = it }
-        Field("Precio", precio, tipo = KeyboardType.Decimal) { precio = it }
-        Field("Duración", duracion) { duracion = it }
-        Field("Descripción ampliada", detalle, multilinea = true) { detalle = it }
-        Field("Horario", horario) { horario = it }
-        Field("Incluidos (uno por línea)", incluidos, multilinea = true) { incluidos = it }
-        Field("Etiquetas (una por línea)", etiquetas, multilinea = true) { etiquetas = it }
-        Selector("Destacado", destacado, listOf(true, false), { if (it) "Sí" else "No" }) { destacado = it }
-        Selector("Activo", activo, listOf(true, false), { if (it) "Sí" else "No" }) { activo = it }
         val importe = precio.trim().replace(',', '.').toBigDecimalOrNull()
+        val precioInvalido = precio.isNotBlank() && (importe == null || importe.signum() < 0)
+
+        FormSection("Información del servicio", "Define cómo se mostrará en el catálogo.") {
+            Field("Nombre", nombre) { nombre = it }
+            Field("Descripción breve", descripcion, multilinea = true) { descripcion = it }
+            Field("Categoría", categoria, isError = categoria.isNotBlank() && categoria.trim().length < 2,
+                supportingText = if (categoria.isNotBlank() && categoria.trim().length < 2) "Usa al menos dos caracteres." else null) { categoria = it }
+            Field("Ruta o URL de imagen", imagen) { imagen = it }
+            if (imagen.isNotBlank()) HotelImage(imagen, nombre.ifBlank { "Vista previa" }, Modifier.fillMaxWidth().height(160.dp))
+            Field("Precio", precio, tipo = KeyboardType.Decimal, isError = precioInvalido,
+                supportingText = if (precioInvalido) "Escribe un precio válido mayor o igual a cero." else "Puedes usar punto o coma decimal.") { precio = it }
+            Field("Duración", duracion) { duracion = it }
+            Field("Descripción ampliada", detalle, multilinea = true) { detalle = it }
+            Field("Horario", horario) { horario = it }
+        }
+        FormSection("Incluye y etiquetas", "Añade elementos de uno en uno; toca una etiqueta para quitarla.") {
+            TagEditor("Incluidos", incluidos.lines().map(String::trim).filter(String::isNotBlank)) {
+                incluidos = it.joinToString("\n")
+            }
+            TagEditor("Etiquetas", etiquetas.lines().map(String::trim).filter(String::isNotBlank)) {
+                etiquetas = it.joinToString("\n")
+            }
+        }
+        FormSection("Publicación") {
+            SwitchField("Destacado", destacado, { destacado = it }, "Resalta este servicio en el inicio.")
+            SwitchField("Activo", activo, { activo = it }, "Los servicios inactivos no se ofrecen al huésped.")
+        }
         Primary("Guardar servicio", nombre.isNotBlank() && categoria.isNotBlank() && importe != null &&
             importe.signum() >= 0 && !estado.guardando) {
             val valor = importe ?: return@Primary
@@ -243,12 +285,14 @@ fun AdminOperadoresScreen(admin: AdminRepository) {
     var nombre by rememberSaveable { mutableStateOf("") }
     var borrar by remember { mutableStateOf<Operador?>(null) }
     RemotePage("Operadores", model) { operadores, estado ->
-        Field("Nombre del nuevo operador", nombre) { if (it.length <= 100) nombre = it }
-        Primary("Crear operador", nombre.isNotBlank() && !estado.guardando) {
-            val valor = nombre.trim()
-            model.ejecutar("Operador creado") {
-                admin.crearOperador(OperadorSolicitud(valor))
-                nombre = ""
+        FormSection("Invitar operador", "Se enviarán las credenciales de acceso al nuevo operador.") {
+            Field("Nombre completo", nombre) { if (it.length <= 100) nombre = it }
+            Primary("Crear operador", nombre.isNotBlank() && !estado.guardando) {
+                val valor = nombre.trim()
+                model.ejecutar("Operador creado") {
+                    admin.crearOperador(OperadorSolicitud(valor))
+                    nombre = ""
+                }
             }
         }
         if (operadores.isEmpty()) Text("No hay operadores registrados.")
