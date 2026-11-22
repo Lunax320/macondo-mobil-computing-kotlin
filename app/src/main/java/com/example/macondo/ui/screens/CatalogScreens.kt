@@ -77,11 +77,15 @@ fun InicioScreen(
 fun HabitacionesScreen(catalogo: CatalogRepository, abrirTipo: (Long) -> Unit) {
     val model = screenModel("habitaciones", catalogo::tipos)
     var personas by rememberSaveable { mutableIntStateOf(1) }
+    var habitacionElegida by rememberSaveable { mutableStateOf("Todas las opciones") }
     var estimarNoches by rememberSaveable { mutableStateOf(false) }
     var noches by rememberSaveable { mutableIntStateOf(1) }
     RemotePage("Habitaciones", model) { tipos, _ ->
         val capacidadMaxima = tipos.maxOfOrNull { it.capacidadPersonas } ?: 1
+        val opcionesHabitacion = listOf("Todas las opciones") + tipos.map { it.nombre }.distinct()
+        val habitacionActual = habitacionElegida.takeIf(opcionesHabitacion::contains) ?: opcionesHabitacion.first()
         FormSection("Encuentra tu habitación", "Compara opciones por capacidad y tarifa.") {
+            Selector("Habitación", habitacionActual, opcionesHabitacion, { it }) { habitacionElegida = it }
             if (capacidadMaxima > 1) {
                 SliderField("Huéspedes", personas, range = 1..capacidadMaxima, unit = "personas") { personas = it }
             } else {
@@ -90,7 +94,10 @@ fun HabitacionesScreen(catalogo: CatalogRepository, abrirTipo: (Long) -> Unit) {
             SwitchField("Estimar el total", estimarNoches, { estimarNoches = it }, "Calcula la tarifa según el número de noches.")
             if (estimarNoches) StepperField("Noches", noches) { noches = it }
         }
-        val opciones = tipos.filter { it.capacidadPersonas >= personas }
+        val opciones = tipos.filter {
+            it.capacidadPersonas >= personas &&
+                (habitacionActual == "Todas las opciones" || it.nombre == habitacionActual)
+        }
         if (opciones.isEmpty()) Text("No hay habitaciones que coincidan con la capacidad seleccionada.")
         opciones.forEach { TipoCard(it, abrirTipo, noches.takeIf { estimarNoches }) }
     }
@@ -128,13 +135,18 @@ fun DetalleHabitacionScreen(catalogo: CatalogRepository, id: Long, reservar: (Lo
 @Composable
 fun ServiciosScreen(catalogo: CatalogRepository, abrir: (Long) -> Unit) {
     val model = screenModel("servicios", catalogo::servicios)
-    var consulta by rememberSaveable { mutableStateOf("") }
+    var categoriaElegida by rememberSaveable { mutableStateOf("Todos los servicios") }
     RemotePage("Servicios", model) { servicios, _ ->
-        Field("Buscar servicios", consulta) { consulta = it }
-        val visibles = servicios.filter {
-            it.nombre.contains(consulta.trim(), true) || it.categoria.orEmpty().contains(consulta.trim(), true)
+        val categorias = servicios.mapNotNull { it.categoria?.trim()?.takeIf(String::isNotEmpty) }.distinct().sorted()
+        val opcionesCategoria = listOf("Todos los servicios") + categorias
+        val categoriaActual = categoriaElegida.takeIf(opcionesCategoria::contains) ?: opcionesCategoria.first()
+        FormSection("Explora servicios", "Selecciona un tipo de experiencia para ver las opciones.") {
+            Selector("Tipo de experiencia", categoriaActual, opcionesCategoria, { it }) { categoriaElegida = it }
         }
-        if (visibles.isEmpty()) Text("No hay servicios que coincidan con la búsqueda.")
+        val visibles = servicios.filter {
+            categoriaActual == "Todos los servicios" || it.categoria?.trim() == categoriaActual
+        }
+        if (visibles.isEmpty()) Text("No hay servicios disponibles en esta selección.")
         visibles.forEach { ServicioCard(it, abrir) }
     }
 }
