@@ -1,10 +1,14 @@
 package com.example.macondo.ui.navigation
 
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -53,6 +57,7 @@ internal fun MacondoApp(
     }
 
     val actual = entrada?.destination?.route
+    val puedeVolver = nav.previousBackStackEntry != null
     val abrirPerfil = {
         nav.navigate(Routes.portal(sesion)) { launchSingleTop = true }
     }
@@ -116,7 +121,16 @@ internal fun MacondoApp(
             }
         }
     ) { padding ->
-        NavHost(nav, startDestination = Routes.inicio, modifier = Modifier.padding(padding)) {
+        Box(Modifier.fillMaxSize().padding(padding)) {
+            NavHost(
+                nav,
+                startDestination = Routes.inicio,
+                modifier = Modifier.fillMaxSize(),
+                enterTransition = { slideInHorizontally(initialOffsetX = { it }) },
+                exitTransition = { slideOutHorizontally(targetOffsetX = { -it }) },
+                popEnterTransition = { slideInHorizontally(initialOffsetX = { -it }) },
+                popExitTransition = { slideOutHorizontally(targetOffsetX = { it }) }
+            ) {
             composable(Routes.inicio) {
                 InicioScreen(catalogo,
                     { nav.navigate(Routes.habitaciones) }, { nav.navigate(Routes.habitacion(it)) },
@@ -191,8 +205,37 @@ internal fun MacondoApp(
                     }
                 }
             }
+            }
+            if (puedeVolver) {
+                Box(
+                    Modifier.align(Alignment.CenterStart).width(24.dp).fillMaxHeight()
+                        .backSwipeEdge(nav, desdeDerecha = false)
+                )
+                Box(
+                    Modifier.align(Alignment.CenterEnd).width(24.dp).fillMaxHeight()
+                        .backSwipeEdge(nav, desdeDerecha = true)
+                )
+            }
         }
     }
+}
+
+private fun Modifier.backSwipeEdge(nav: NavController, desdeDerecha: Boolean) = pointerInput(nav, desdeDerecha) {
+    val recorridoMinimo = 96.dp.toPx()
+    var desplazamiento = 0f
+    detectHorizontalDragGestures(
+        onHorizontalDrag = { cambio, delta ->
+            desplazamiento += delta
+            cambio.consume()
+        },
+        onDragEnd = {
+            val completo = if (desdeDerecha) desplazamiento <= -recorridoMinimo
+                else desplazamiento >= recorridoMinimo
+            desplazamiento = 0f
+            if (completo) nav.popBackStack()
+        },
+        onDragCancel = { desplazamiento = 0f }
+    )
 }
 
 @Composable
