@@ -1,6 +1,7 @@
 package com.example.macondo.ui.navigation
 
 import android.net.Uri
+import com.example.macondo.data.Sesion
 
 internal object Routes {
     const val inicio = "inicio"
@@ -19,6 +20,39 @@ internal object Routes {
     const val nuevaReserva = "cliente/{id}/reservas/nueva?tipoId={tipoId}"
     const val editarReserva = "cliente/{id}/reservas/{reservaId}/editar"
     const val perfil = "cliente/{id}/perfil"
+
+    const val operador = "operador"
+    const val operadorReservas = "operador/reservas"
+    const val operadorDetalle = "operador/reservas/{numeroReserva}"
+    const val buscarCuenta = "operador/cuenta"
+    const val cuenta = "operador/cuenta/{reservaId}"
+    const val checkout = "operador/checkout?reservaId={reservaId}"
+
+    const val admin = "admin"
+    const val adminHabitaciones = "admin/habitaciones"
+    const val adminNuevaHabitacion = "admin/habitaciones/nueva"
+    const val adminEditarHabitacion = "admin/habitaciones/editar/{id}"
+    const val adminTipos = "admin/tipos_habitacion"
+    const val adminServicios = "admin/servicios"
+    const val adminNuevoServicio = "admin/servicios/nuevo"
+    const val adminEditarServicio = "admin/servicios/editar/{id}"
+    const val adminOperadores = "admin/operadores"
+
+    fun operadorDetalle(numero: String) = "operador/reservas/${Uri.encode(numero)}"
+    fun cuenta(id: Long) = "operador/cuenta/$id"
+    fun checkout(id: Long? = null) = id?.let { "operador/checkout?reservaId=$it" } ?: "operador/checkout"
+    fun adminEditarHabitacion(id: Long) = "admin/habitaciones/editar/$id"
+    fun adminEditarServicio(id: Long) = "admin/servicios/editar/$id"
+
+    fun portal(sesion: Sesion?): String {
+        if (sesion == null) return login()
+        if (sesion.tiene("ADMINISTRADOR")) return admin
+        if (sesion.tiene("OPERADOR")) return operador
+        return sesion.cliente?.id?.let(::cliente) ?: inicio
+    }
+
+    fun protegida(ruta: String) =
+        ruta.startsWith("cliente/") || ruta.startsWith("operador") || ruta.startsWith("admin")
 
     fun login(tipoId: Long? = null) = tipoId?.let { "login?tipoId=$it" } ?: "login"
     fun habitacion(id: Long) = "habitaciones/$id"

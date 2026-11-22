@@ -23,7 +23,9 @@ import kotlinx.coroutines.launch
 internal fun MacondoApp(
     catalogo: CatalogRepository,
     cuentas: AccountRepository,
-    reservas: ReservationRepository
+    reservas: ReservationRepository,
+    operaciones: OperationsRepository,
+    admin: AdminRepository
 ) {
     val sesion by cuentas.sesion.collectAsStateWithLifecycle()
     val nav = rememberNavController()
@@ -31,10 +33,12 @@ internal fun MacondoApp(
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
     var restaurando by remember { mutableStateOf(true) }
+    var abrirPortalRestaurado by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         try {
             cuentas.restaurar()
+            abrirPortalRestaurado = cuentas.sesion.value != null
         } finally {
             restaurando = false
         }
@@ -49,14 +53,20 @@ internal fun MacondoApp(
     val clienteId = sesion?.cliente?.id
     val puedeVolver = nav.previousBackStackEntry != null
     val abrirPerfil = {
-        val id = sesion?.cliente?.id
-        nav.navigate(if (id == null) Routes.login() else Routes.cliente(id)) { launchSingleTop = true }
+        nav.navigate(Routes.portal(sesion)) { launchSingleTop = true }
     }
 
     LaunchedEffect(sesion?.id, actual) {
         val session = sesion
         val ruta = actual ?: return@LaunchedEffect
-        if (session == null && ruta.startsWith("cliente/")) {
+        if (abrirPortalRestaurado) {
+            abrirPortalRestaurado = false
+            if (session != null && ruta == Routes.inicio) {
+                nav.reiniciar(Routes.portal(session))
+                return@LaunchedEffect
+            }
+        }
+        if (session == null && Routes.protegida(ruta)) {
             nav.reiniciar(Routes.login())
         } else if (session != null && ruta == Routes.login) {
             val tipoId = entrada?.arguments?.getLong("tipoId")?.takeIf { it > 0 }
@@ -65,7 +75,7 @@ internal fun MacondoApp(
                 nav.reiniciar(Routes.cliente(id))
                 if (tipoId != null) nav.navigate(Routes.nuevaReserva(id, tipoId))
             } else {
-                nav.reiniciar(Routes.inicio)
+                nav.reiniciar(Routes.portal(session))
             }
         }
     }
@@ -88,8 +98,8 @@ internal fun MacondoApp(
             )
         },
         bottomBar = {
-            if (actual?.startsWith("cliente/") != true && actual != Routes.login && actual != Routes.registro ||
-                actual == Routes.cliente) {
+            if (actual != null && ((!Routes.protegida(actual) && actual != Routes.login && actual != Routes.registro) ||
+                    actual in setOf(Routes.cliente, Routes.operador, Routes.admin))) {
                 Surface(color = MaterialTheme.colorScheme.surfaceVariant) {
                     Row(
                         Modifier.fillMaxWidth().padding(horizontal = 4.dp),
@@ -133,6 +143,8 @@ internal fun MacondoApp(
                 DetalleServicioScreen(catalogo, destino.id()) { nav.navigate(Routes.servicio(it)) }
             }
             composable(Routes.explorar) { ExplorarScreen() }
+
+            staffRoutes(nav, { cuentas.sesion.value }, operaciones, admin, catalogo)
 
             composable(Routes.cliente, arguments = listOf(idArgument("id"))) { destino ->
                 ClienteDest(destino, sesion, abrirPerfil) { id ->

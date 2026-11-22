@@ -5,6 +5,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import com.example.macondo.data.repository.AccountRepository
+import com.example.macondo.data.repository.AdminRepository
+import com.example.macondo.data.repository.OperationsRepository
 import com.example.macondo.data.repository.CatalogRepository
 import com.example.macondo.data.repository.ReservationRepository
 import com.example.macondo.ui.navigation.MacondoApp
@@ -17,10 +19,12 @@ class MainActivity : ComponentActivity() {
     @Inject lateinit var catalogo: CatalogRepository
     @Inject lateinit var cuentas: AccountRepository
     @Inject lateinit var reservas: ReservationRepository
+    @Inject lateinit var operaciones: OperationsRepository
+    @Inject lateinit var admin: AdminRepository
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        setContent { MacondoTheme { MacondoApp(catalogo, cuentas, reservas) } }
+        setContent { MacondoTheme { MacondoApp(catalogo, cuentas, reservas, operaciones, admin) } }
     }
 }
