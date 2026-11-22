@@ -1,58 +1,34 @@
 package com.example.macondo.ui.theme
 
-import android.app.Activity
-import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.Color
 
-private val DarkColorScheme = darkColorScheme(
-    primary = Purple80,
-    secondary = PurpleGrey80,
-    tertiary = Pink80
+private val Claro = lightColorScheme(
+    primary = Color(0xFF16394D), onPrimary = Color.White,
+    secondary = Color(0xFF785425), onSecondary = Color.White,
+    secondaryContainer = Color(0xFFF4E1BD), onSecondaryContainer = Color(0xFF39260F),
+    background = Color(0xFFFFFAF1), onBackground = Color(0xFF172C38),
+    surface = Color(0xFFFFFAF1), onSurface = Color(0xFF172C38),
+    surfaceVariant = Color(0xFFF2EADE), onSurfaceVariant = Color(0xFF514B43),
+    outlineVariant = Color(0xFFD5C7B7)
 )
 
-private val LightColorScheme = lightColorScheme(
-    primary = Purple40,
-    secondary = PurpleGrey40,
-    tertiary = Pink40
-
-    /* Other default colors to override
-    background = Color(0xFFFFFBFE),
-    surface = Color(0xFFFFFBFE),
-    onPrimary = Color.White,
-    onSecondary = Color.White,
-    onTertiary = Color.White,
-    onBackground = Color(0xFF1C1B1F),
-    onSurface = Color(0xFF1C1B1F),
-    */
+private val Oscuro = darkColorScheme(
+    primary = Color(0xFFB4D8F0), onPrimary = Color(0xFF102D40),
+    secondary = Color(0xFFF0CC8F), secondaryContainer = Color(0xFF4C361A),
+    onSecondaryContainer = Color(0xFFF9E5C4), background = Color(0xFF101B23),
+    surface = Color(0xFF101B23), surfaceVariant = Color(0xFF22313A), onSurface = Color(0xFFF8F0E3)
 )
 
 @Composable
-fun MacondoTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
-    // Dynamic color is available on Android 12+
-    dynamicColor: Boolean = true,
-    content: @Composable () -> Unit
-) {
-    val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        }
-
-        darkTheme -> DarkColorScheme
-        else -> LightColorScheme
-    }
-
+fun MacondoTheme(content: @Composable () -> Unit) {
     MaterialTheme(
-        colorScheme = colorScheme,
-        typography = Typography,
+        colorScheme = if (isSystemInDarkTheme()) Oscuro else Claro,
+        typography = MacondoTypography,
         content = content
     )
 }
