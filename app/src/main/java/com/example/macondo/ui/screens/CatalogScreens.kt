@@ -77,27 +77,22 @@ fun InicioScreen(
 fun HabitacionesScreen(catalogo: CatalogRepository, abrirTipo: (Long) -> Unit) {
     val model = screenModel("habitaciones", catalogo::tipos)
     var personas by rememberSaveable { mutableIntStateOf(1) }
-    var categoria by rememberSaveable { mutableStateOf("") }
     var estimarNoches by rememberSaveable { mutableStateOf(false) }
     var noches by rememberSaveable { mutableIntStateOf(1) }
     RemotePage("Habitaciones", model) { tipos, _ ->
         val capacidadMaxima = tipos.maxOfOrNull { it.capacidadPersonas } ?: 1
-        FormSection("Encuentra tu habitación", "Ajusta los filtros para comparar las categorías disponibles.") {
+        FormSection("Encuentra tu habitación", "Compara opciones por capacidad y tarifa.") {
             if (capacidadMaxima > 1) {
                 SliderField("Huéspedes", personas, range = 1..capacidadMaxima, unit = "personas") { personas = it }
             } else {
                 Text("Huéspedes · 1")
             }
-            Field("Buscar categoría", categoria) { categoria = it }
             SwitchField("Estimar el total", estimarNoches, { estimarNoches = it }, "Calcula la tarifa según el número de noches.")
             if (estimarNoches) StepperField("Noches", noches) { noches = it }
         }
-        val filtrados = tipos.filter {
-            it.capacidadPersonas >= personas &&
-                it.nombre.contains(categoria.trim(), ignoreCase = true)
-        }
-        if (filtrados.isEmpty()) Text("No hay categorías que coincidan con los filtros.")
-        filtrados.forEach { TipoCard(it, abrirTipo, noches.takeIf { estimarNoches }) }
+        val opciones = tipos.filter { it.capacidadPersonas >= personas }
+        if (opciones.isEmpty()) Text("No hay habitaciones que coincidan con la capacidad seleccionada.")
+        opciones.forEach { TipoCard(it, abrirTipo, noches.takeIf { estimarNoches }) }
     }
 }
 

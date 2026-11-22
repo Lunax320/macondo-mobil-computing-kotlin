@@ -95,13 +95,6 @@ internal fun MacondoApp(
                         HotelImage("/images/logo.png", null, Modifier.size(26.dp))
                         Text("Macondo", style = MaterialTheme.typography.titleLarge)
                     }
-                },
-                actions = {
-                    if (sesion != null) {
-                        TextButton(onClick = { scope.launch { cuentas.salir(); nav.reiniciar(Routes.inicio) } }) {
-                            Text("Salir")
-                        }
-                    }
                 }
             )
         },

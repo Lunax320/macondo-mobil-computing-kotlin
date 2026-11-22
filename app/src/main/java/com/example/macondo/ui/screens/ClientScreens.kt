@@ -146,7 +146,7 @@ fun ReservaFormScreen(
         }
         val resultado = disponibilidad.takeIf { it.consulta == consulta }
         FormSection("Elige tu habitación", "Compara capacidad y tarifa antes de consultar fechas.") {
-            if (datos.tipos.isEmpty()) Text("No hay categorías disponibles por el momento.")
+            if (datos.tipos.isEmpty()) Text("No hay opciones de habitación disponibles por el momento.")
             datos.tipos.forEach { opcion ->
                 TipoHabitacionOption(opcion, selected = opcion.id == tipoId) {
                     tipoId = opcion.id
@@ -173,7 +173,7 @@ fun ReservaFormScreen(
             }
         }
         tipo?.let { tipoSeleccionado ->
-            FormSection("Huéspedes", "Máximo ${tipoSeleccionado.capacidadPersonas} para esta categoría.") {
+            FormSection("Huéspedes", "Esta opción admite hasta ${tipoSeleccionado.capacidadPersonas} huéspedes.") {
                 if (tipoSeleccionado.capacidadPersonas > 1) {
                     SliderField(
                         "Personas",
