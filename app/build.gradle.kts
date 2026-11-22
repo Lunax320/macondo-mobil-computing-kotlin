@@ -25,11 +25,11 @@ android {
 
     buildTypes {
         debug {
-            val base = urlApi.orElse("http://10.0.2.2:8080/api/").get()
+            val base = urlApi.orElse("https://macondo.kusare.fyi/api/").get()
             buildConfigField("String", "API_BASE_URL", "\"$base\"")
         }
         release {
-            val base = urlApi.orElse("https://macondo-api.kusare.fyi/api/").get()
+            val base = urlApi.orElse("https://macondo.kusare.fyi/api/").get()
             require(base.startsWith("https://")) { "La API de release requiere HTTPS." }
             buildConfigField("String", "API_BASE_URL", "\"$base\"")
             optimization {
