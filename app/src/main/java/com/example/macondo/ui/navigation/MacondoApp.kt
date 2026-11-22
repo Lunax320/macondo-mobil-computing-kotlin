@@ -53,7 +53,6 @@ internal fun MacondoApp(
     }
 
     val actual = entrada?.destination?.route
-    val puedeVolver = nav.previousBackStackEntry != null
     val abrirPerfil = {
         nav.navigate(Routes.portal(sesion)) { launchSingleTop = true }
     }
@@ -91,9 +90,6 @@ internal fun MacondoApp(
                         HotelImage("/images/logo.png", null, Modifier.size(26.dp))
                         Text("Macondo", style = MaterialTheme.typography.titleLarge)
                     }
-                },
-                navigationIcon = {
-                    if (puedeVolver) TextButton(onClick = { nav.popBackStack() }) { Text("Atrás") }
                 },
                 actions = {
                     if (sesion != null) {

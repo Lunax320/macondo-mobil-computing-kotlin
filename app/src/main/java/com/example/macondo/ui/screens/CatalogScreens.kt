@@ -125,11 +125,8 @@ fun DetalleHabitacionScreen(catalogo: CatalogRepository, id: Long, reservar: (Lo
 @Composable
 fun ServiciosScreen(catalogo: CatalogRepository, abrir: (Long) -> Unit) {
     val model = screenModel("servicios", catalogo::servicios)
-    var mapaVisible by rememberSaveable { mutableStateOf(false) }
     var consulta by rememberSaveable { mutableStateOf("") }
     RemotePage("Servicios", model) { servicios, _ ->
-        Secondary(if (mapaVisible) "Ocultar plano" else "Ver plano del hotel") { mapaVisible = !mapaVisible }
-        if (mapaVisible) HotelImage("/images/mapa-hotel.jpg", "Plano del hotel", Modifier.fillMaxWidth().aspectRatio(1.35f))
         Field("Buscar servicios", consulta) { consulta = it }
         val visibles = servicios.filter {
             it.nombre.contains(consulta.trim(), true) || it.categoria.orEmpty().contains(consulta.trim(), true)
