@@ -59,6 +59,13 @@ class AccountRepository @Inject constructor(
         withContext(Dispatchers.IO) { sesiones.guardar(sesion) }
     }
 
+    override suspend fun actualizarPerfil(id: Long, cliente: Cliente): Cliente {
+        val token = sesion.value?.token
+        val perfil = api.actualizarPerfil(id, cliente)
+        if (token != null) withContext(Dispatchers.IO) { sesiones.actualizarPerfil(token, perfil) }
+        return perfil
+    }
+
     suspend fun salir() = withContext(Dispatchers.IO) { sesiones.cerrar() }
 }
 

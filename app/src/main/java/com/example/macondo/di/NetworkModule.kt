@@ -32,7 +32,7 @@ object NetworkModule {
             cadena.proceed(autorizada).also { respuesta ->
                 if (respuesta.code == 401 && token != null) sesiones.cerrar(token)
             }
-        }.followRedirects(false).build()
+        }.followRedirects(false).retryOnConnectionFailure(false).build()
 
         return Retrofit.Builder()
             .baseUrl(BuildConfig.API_BASE_URL)

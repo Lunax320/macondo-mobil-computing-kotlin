@@ -1,6 +1,5 @@
 package com.example.macondo.ui.components
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -23,7 +22,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
-import com.example.macondo.BuildConfig
 import com.example.macondo.ui.ScreenModel
 import com.example.macondo.ui.ScreenState
 import java.math.BigDecimal
@@ -113,6 +111,7 @@ fun Field(
     secret: Boolean = false,
     tipo: KeyboardType = KeyboardType.Text,
     multilinea: Boolean = false,
+    readOnly: Boolean = false,
     onChange: (String) -> Unit
 ) {
     OutlinedTextField(
@@ -121,6 +120,7 @@ fun Field(
         label = { Text(label) },
         modifier = Modifier.fillMaxWidth(),
         singleLine = !multilinea,
+        readOnly = readOnly,
         keyboardOptions = KeyboardOptions(keyboardType = if (secret) KeyboardType.Password else tipo),
         visualTransformation = if (secret) PasswordVisualTransformation() else VisualTransformation.None
     )
@@ -198,10 +198,12 @@ fun Confirmar(
 fun HotelImage(ruta: String?, descripcion: String?, modifier: Modifier = Modifier) {
     if (ruta.isNullOrBlank()) return
     val contexto = LocalContext.current
+    // La web identifica estas imágenes como AVIF; el APK incluye JPEG para admitir API 24.
+    val recurso = if (ruta.endsWith(".avif", ignoreCase = true)) ruta.dropLast(5) + ".jpg" else ruta
     val fuente = when {
         ruta.startsWith("https://") -> ruta
-        ruta.startsWith("/images/") -> "file:///android_asset/" + ruta.removePrefix("/")
-        ruta.startsWith("images/") -> "file:///android_asset/$ruta"
+        ruta.startsWith("/images/") -> "file:///android_asset/" + recurso.removePrefix("/")
+        ruta.startsWith("images/") -> "file:///android_asset/$recurso"
         else -> null
     } ?: return
     AsyncImage(

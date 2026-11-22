@@ -93,7 +93,7 @@ fun AdminHabitacionFormScreen(admin: AdminRepository, catalogo: CatalogRepositor
         Field("Piso", piso, tipo = KeyboardType.Number) { piso = it.filter(Char::isDigit) }
         Field("Capacidad", capacidad, tipo = KeyboardType.Number) { capacidad = it.filter(Char::isDigit) }
         Field("Etiqueta", etiqueta) { etiqueta = it }
-        Selector("Estado", estadoHabitacion, listOf("DISPONIBLE", "MANTENIMIENTO"), { it }) { estadoHabitacion = it }
+        Selector("Estado", estadoHabitacion, listOf("DISPONIBLE", "NO_DISPONIBLE"), { it }) { estadoHabitacion = it }
         val valido = tipoId != null && nombre.isNotBlank() && numero.isNotBlank() &&
             (piso.toIntOrNull() ?: 0) > 0 && (capacidad.toIntOrNull() ?: 0) > 0
         Primary("Guardar habitación", valido && !estado.guardando) {

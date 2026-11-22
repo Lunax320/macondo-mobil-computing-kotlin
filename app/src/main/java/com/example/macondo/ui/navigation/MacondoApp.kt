@@ -3,7 +3,9 @@ package com.example.macondo.ui.navigation
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavBackStackEntry
@@ -13,6 +15,7 @@ import androidx.navigation.compose.*
 import androidx.navigation.navArgument
 import com.example.macondo.data.Sesion
 import com.example.macondo.data.repository.*
+import com.example.macondo.ui.components.HotelImage
 import com.example.macondo.ui.components.Page
 import com.example.macondo.ui.components.Primary
 import com.example.macondo.ui.screens.*
@@ -50,7 +53,6 @@ internal fun MacondoApp(
     }
 
     val actual = entrada?.destination?.route
-    val clienteId = sesion?.cliente?.id
     val puedeVolver = nav.previousBackStackEntry != null
     val abrirPerfil = {
         nav.navigate(Routes.portal(sesion)) { launchSingleTop = true }
@@ -84,7 +86,12 @@ internal fun MacondoApp(
         snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
             TopAppBar(
-                title = { Text("Macondo") },
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        HotelImage("/images/logo.png", null, Modifier.size(26.dp))
+                        Text("Macondo", style = MaterialTheme.typography.titleLarge)
+                    }
+                },
                 navigationIcon = {
                     if (puedeVolver) TextButton(onClick = { nav.popBackStack() }) { Text("Atrás") }
                 },
@@ -102,13 +109,12 @@ internal fun MacondoApp(
                     actual in setOf(Routes.cliente, Routes.operador, Routes.admin))) {
                 Surface(color = MaterialTheme.colorScheme.surfaceVariant) {
                     Row(
-                        Modifier.fillMaxWidth().padding(horizontal = 4.dp),
-                        horizontalArrangement = Arrangement.SpaceEvenly
+                        Modifier.fillMaxWidth().navigationBarsPadding()
                     ) {
-                        TextButton(onClick = { nav.inicio() }) { Text("Inicio") }
-                        TextButton(onClick = { nav.navigate(Routes.habitaciones) { launchSingleTop = true } }) { Text("Habitaciones") }
-                        TextButton(onClick = { nav.navigate(Routes.servicios) { launchSingleTop = true } }) { Text("Servicios") }
-                        TextButton(onClick = abrirPerfil) { Text(if (sesion == null) "Entrar" else "Cuenta") }
+                        NavItem("Inicio") { nav.inicio() }
+                        NavItem("Habitaciones") { nav.navigate(Routes.habitaciones) { launchSingleTop = true } }
+                        NavItem("Servicios") { nav.navigate(Routes.servicios) { launchSingleTop = true } }
+                        NavItem(if (sesion == null) "Entrar" else "Cuenta", abrirPerfil)
                     }
                 }
             }
@@ -135,6 +141,7 @@ internal fun MacondoApp(
             }
             composable(Routes.habitacion, arguments = listOf(idArgument("id"))) { destino ->
                 DetalleHabitacionScreen(catalogo, destino.id()) { tipo ->
+                    val clienteId = sesion?.cliente?.id
                     nav.navigate(if (clienteId == null) Routes.login(tipo) else Routes.nuevaReserva(clienteId, tipo))
                 }
             }
@@ -144,7 +151,7 @@ internal fun MacondoApp(
             }
             composable(Routes.explorar) { ExplorarScreen() }
 
-            staffRoutes(nav, { cuentas.sesion.value }, operaciones, admin, catalogo)
+            staffRoutes(nav, { sesion }, operaciones, admin, catalogo)
 
             composable(Routes.cliente, arguments = listOf(idArgument("id"))) { destino ->
                 ClienteDest(destino, sesion, abrirPerfil) { id ->
@@ -189,6 +196,17 @@ internal fun MacondoApp(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun RowScope.NavItem(label: String, abrir: () -> Unit) {
+    TextButton(
+        onClick = abrir,
+        modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+        contentPadding = PaddingValues(horizontal = 2.dp, vertical = 6.dp)
+    ) {
+        Text(label, textAlign = TextAlign.Center, style = MaterialTheme.typography.labelMedium)
     }
 }
 

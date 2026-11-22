@@ -52,7 +52,13 @@ fun InicioScreen(
             if (inicio.testimonios.isNotEmpty() || !inicio.comentarios.isNullOrEmpty()) Section("Experiencias de huéspedes")
             inicio.testimonios.forEach { testimonio ->
                 Panel {
-                    Text(testimonio.nombre, style = MaterialTheme.typography.titleMedium)
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        HotelImage(testimonio.imagen, null, Modifier.size(52.dp))
+                        Column {
+                            Text(testimonio.nombre, style = MaterialTheme.typography.titleMedium)
+                            testimonio.ciudad?.let { Text(it) }
+                        }
+                    }
                     testimonio.texto?.let { Text(it) }
                     Text("${testimonio.estrellas} de 5")
                 }
@@ -73,24 +79,30 @@ fun HabitacionesScreen(catalogo: CatalogRepository, abrirTipo: (Long) -> Unit) {
     val model = screenModel("habitaciones", catalogo::tipos)
     var personas by rememberSaveable { mutableStateOf("") }
     var categoria by rememberSaveable { mutableStateOf("") }
+    var noches by rememberSaveable { mutableStateOf("") }
     RemotePage("Habitaciones", model) { tipos, _ ->
         Field("Huéspedes", personas, tipo = KeyboardType.Number) { personas = it.filter(Char::isDigit) }
         Field("Buscar una categoría", categoria) { categoria = it }
+        Field("Noches (para estimar la tarifa)", noches, tipo = KeyboardType.Number) { noches = it.filter(Char::isDigit) }
         val filtrados = tipos.filter {
             it.capacidadPersonas >= (personas.toIntOrNull() ?: 0) &&
                 it.nombre.contains(categoria.trim(), ignoreCase = true)
         }
         if (filtrados.isEmpty()) Text("No hay categorías que coincidan con los filtros.")
-        filtrados.forEach { TipoCard(it, abrirTipo) }
+        filtrados.forEach { TipoCard(it, abrirTipo, noches.toIntOrNull()?.takeIf { cantidad -> cantidad > 0 }) }
     }
 }
 
 @Composable
-private fun TipoCard(tipo: TipoHabitacion, abrir: (Long) -> Unit) {
+private fun TipoCard(tipo: TipoHabitacion, abrir: (Long) -> Unit, noches: Int? = null) {
     Panel {
         HotelImage(tipo.imagen, tipo.nombre, Modifier.fillMaxWidth().height(142.dp))
         Section(tipo.nombre)
         Text("${tipo.capacidadPersonas} huéspedes · ${moneda(tipo.precioNoche)} por noche")
+        if (noches != null) {
+            val total = tipo.precioNoche.multiply(noches.toBigDecimal())
+            Text("Estimado por $noches noches · ${moneda(total)}")
+        }
         tipo.id?.let { id -> TextButton(onClick = { abrir(id) }) { Text("Ver habitación") } }
     }
 }
@@ -113,8 +125,11 @@ fun DetalleHabitacionScreen(catalogo: CatalogRepository, id: Long, reservar: (Lo
 @Composable
 fun ServiciosScreen(catalogo: CatalogRepository, abrir: (Long) -> Unit) {
     val model = screenModel("servicios", catalogo::servicios)
+    var mapaVisible by rememberSaveable { mutableStateOf(false) }
     var consulta by rememberSaveable { mutableStateOf("") }
     RemotePage("Servicios", model) { servicios, _ ->
+        Secondary(if (mapaVisible) "Ocultar plano" else "Ver plano del hotel") { mapaVisible = !mapaVisible }
+        if (mapaVisible) HotelImage("/images/mapa-hotel.jpg", "Plano del hotel", Modifier.fillMaxWidth().aspectRatio(1.35f))
         Field("Buscar servicios", consulta) { consulta = it }
         val visibles = servicios.filter {
             it.nombre.contains(consulta.trim(), true) || it.categoria.orEmpty().contains(consulta.trim(), true)

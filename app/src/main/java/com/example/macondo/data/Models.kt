@@ -30,7 +30,7 @@ data class Servicio(
 )
 
 data class Testimonio(
-    val id: Long, val nombre: String, val texto: String?, val mensaje: String?, val estrellas: Int
+    val id: Long, val nombre: String, val texto: String?, val ciudad: String?, val imagen: String?, val estrellas: Int
 )
 
 data class Cliente(

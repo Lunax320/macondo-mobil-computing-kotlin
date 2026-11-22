@@ -200,7 +200,8 @@ fun HistorialScreen(reservas: ReservationRepository, cuentas: AccountRepository,
                 if (datos.comentarios != null && reserva.estado == "FINALIZADA") {
                     comentario?.let {
                         Text(it.texto)
-                        Text("${it.calificacion} de 5 · ${if (it.publicado) "Publicado" else "Pendiente"}")
+                        val estadoComentario = if (it.publicado) "Publicado" else "Pendiente · referencia ${it.id}"
+                        Text("${it.calificacion} de 5 · $estadoComentario")
                     }
                     Secondary(if (comentario == null) "Comentar estadía" else "Editar comentario", !estado.guardando) {
                         editando = reserva
@@ -274,6 +275,7 @@ fun PerfilScreen(cuentas: AccountRepository, clienteId: Long) {
 
     RemotePage("Mi perfil", model) { perfil, estado ->
         ClienteFields(perfil) { solicitud, valido ->
+            Text("Si cambias el correo, deberás volver a iniciar sesión.")
             Primary("Guardar perfil", valido && !estado.guardando) {
                 model.ejecutar("Perfil actualizado") { cuentas.actualizarPerfil(clienteId, solicitud) }
             }

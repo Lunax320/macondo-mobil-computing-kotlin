@@ -4,6 +4,7 @@ import android.content.Context
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.AtomicFile
+import com.example.macondo.data.Cliente
 import com.example.macondo.data.Sesion
 import com.google.gson.Gson
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -60,6 +61,13 @@ class SessionStore @Inject constructor(@ApplicationContext context: Context, pri
         if (token != null && actual.value?.token != token) return
         archivo.delete()
         actual.value = null
+    }
+
+    @Synchronized
+    fun actualizarPerfil(token: String, cliente: Cliente) {
+        val sesion = actual.value?.takeIf { it.token == token } ?: return
+        if (sesion.correo.equals(cliente.correo, ignoreCase = true)) guardar(sesion.copy(cliente = cliente))
+        else cerrar(token)
     }
 
     private fun clave(): SecretKey {

@@ -63,7 +63,7 @@ fun ClienteFields(
     var correo by rememberSaveable(inicial?.correo) { mutableStateOf(inicial?.correo.orEmpty()) }
     Field("Nombre", nombre) { nombre = it }
     Field("Apellido", apellido) { apellido = it }
-    Field("Cédula", cedula, tipo = KeyboardType.Number) { cedula = it }
+    Field("Cédula", cedula, tipo = KeyboardType.Number, readOnly = inicial != null) { cedula = it }
     Field("Teléfono", telefono, tipo = KeyboardType.Phone) { telefono = it }
     Field("Correo electrónico", correo, tipo = KeyboardType.Email) { correo = it }
     val datos = Cliente(inicial?.id, nombre.trim(), apellido.trim(), cedula.trim(), telefono.trim(), correo.trim())
