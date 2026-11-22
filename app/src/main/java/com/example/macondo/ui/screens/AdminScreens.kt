@@ -1,5 +1,6 @@
 package com.example.macondo.ui.screens
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -114,10 +115,14 @@ fun AdminTiposScreen(admin: AdminRepository, catalogo: CatalogRepository) {
     var editando by rememberSaveable { mutableStateOf(false) }
     var seleccionado by rememberSaveable { mutableStateOf<Long?>(null) }
     var borrar by remember { mutableStateOf<TipoHabitacion?>(null) }
+    BackHandler(enabled = editando) {
+        editando = false
+        seleccionado = null
+    }
     RemotePage("Tipos de habitación", model) { tipos, estado ->
         if (editando) {
             val tipo = tipos.firstOrNull { it.id == seleccionado }
-            TipoForm(tipo, estado.guardando, cerrar = { editando = false }) { solicitud ->
+            TipoForm(tipo, estado.guardando) { solicitud ->
                 model.ejecutar("Tipo guardado") {
                     admin.guardar(solicitud)
                     editando = false
@@ -144,7 +149,7 @@ fun AdminTiposScreen(admin: AdminRepository, catalogo: CatalogRepository) {
 }
 
 @Composable
-private fun TipoForm(tipo: TipoHabitacion?, guardando: Boolean, cerrar: () -> Unit, guardar: (TipoHabitacion) -> Unit) {
+private fun TipoForm(tipo: TipoHabitacion?, guardando: Boolean, guardar: (TipoHabitacion) -> Unit) {
     var nombre by rememberSaveable(tipo?.id) { mutableStateOf(tipo?.nombre.orEmpty()) }
     var descripcion by rememberSaveable(tipo?.id) { mutableStateOf(tipo?.descripcion.orEmpty()) }
     var imagen by rememberSaveable(tipo?.id) { mutableStateOf(tipo?.imagen.orEmpty()) }
@@ -164,7 +169,6 @@ private fun TipoForm(tipo: TipoHabitacion?, guardando: Boolean, cerrar: () -> Un
         if (valor != null && personas != null) guardar(TipoHabitacion(tipo?.id, nombre.trim(),
             descripcion.trim(), imagen.trim(), valor, personas))
     }
-    Secondary("Volver al listado", !guardando, cerrar)
 }
 
 @Composable

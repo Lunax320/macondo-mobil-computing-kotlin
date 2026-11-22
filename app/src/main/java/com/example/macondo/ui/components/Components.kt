@@ -59,7 +59,7 @@ fun <T> RemotePage(
         if (state.cargando || state.guardando) LinearProgressIndicator(Modifier.fillMaxWidth())
         state.error?.let {
             Text(it, color = MaterialTheme.colorScheme.error)
-            if (!state.guardando) TextButton(onClick = model::recargar) { Text("Volver a consultar") }
+            if (!state.guardando) TextButton(onClick = model::recargar) { Text("Reintentar") }
         }
         state.aviso?.let { mensaje ->
             Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = MaterialTheme.shapes.medium) {
@@ -190,7 +190,7 @@ fun Confirmar(
         title = { Text(titulo) },
         text = { Text(texto) },
         confirmButton = { TextButton(onClick = { cerrar(); accion() }) { Text(confirmar) } },
-        dismissButton = { TextButton(onClick = cerrar) { Text("Volver") } }
+        dismissButton = { TextButton(onClick = cerrar) { Text("Cancelar") } }
     )
 }
 

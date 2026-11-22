@@ -236,7 +236,7 @@ fun HistorialScreen(reservas: ReservationRepository, cuentas: AccountRepository,
                         }
                     }, enabled = texto.isNotBlank() && !estado.guardando) { Text("Guardar") }
                 },
-                dismissButton = { TextButton(onClick = { editando = null }) { Text("Volver") } }
+                dismissButton = { TextButton(onClick = { editando = null }) { Text("Cancelar") } }
             )
         }
     }

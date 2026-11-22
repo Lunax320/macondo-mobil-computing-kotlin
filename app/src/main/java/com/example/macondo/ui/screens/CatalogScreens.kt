@@ -34,7 +34,7 @@ fun InicioScreen(
         if (estado.cargando) LinearProgressIndicator(Modifier.fillMaxWidth())
         estado.error?.let {
             Text(it, color = MaterialTheme.colorScheme.error)
-            Secondary("Volver a consultar", onClick = model::recargar)
+            Secondary("Reintentar", onClick = model::recargar)
         }
         estado.datos?.let { inicio ->
             if (inicio.tipos.isNotEmpty()) {
