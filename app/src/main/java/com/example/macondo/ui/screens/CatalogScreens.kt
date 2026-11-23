@@ -8,8 +8,10 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.macondo.R
 import com.example.macondo.data.Servicio
 import com.example.macondo.data.TipoHabitacion
 import com.example.macondo.data.repository.PromocionesRepository
@@ -34,6 +36,7 @@ fun InicioScreen(
         Hero()
         Primary("Ver habitaciones", onClick = abrirCatalogo)
         Secondary("Explorar el hotel", onClick = explorar)
+        if (promociones != null) PromocionesInicio(promociones, abrirPromociones)
         if (estado.cargando) LinearProgressIndicator(Modifier.fillMaxWidth())
         estado.error?.let {
             Text(it, color = MaterialTheme.colorScheme.error)
@@ -48,7 +51,6 @@ fun InicioScreen(
                     }
                 }
             }
-            if (promociones != null) PromocionesInicio(promociones, abrirPromociones)
             Section("Servicios")
             if (inicio.servicios.isEmpty()) Text("Por ahora no hay servicios recomendados.")
             inicio.servicios.take(3).forEach { ServicioCard(it, abrirServicio) }
@@ -137,7 +139,7 @@ private fun TipoCard(tipo: TipoHabitacion, abrir: (Long) -> Unit, noches: Int? =
             Text("${moneda(tipo.precioNoche)} por noche", style = MaterialTheme.typography.titleMedium)
             if (noches != null) {
                 val total = tipo.precioNoche.multiply(noches.toBigDecimal())
-                Text("Estimado · ${moneda(total)} por $noches ${if (noches == 1) "noche" else "noches"}")
+                Text("Estimado: ${moneda(total)} por $noches ${if (noches == 1) "noche" else "noches"}")
             }
         }
     }
@@ -211,9 +213,22 @@ fun DetalleServicioScreen(catalogo: CatalogRepository, id: Long, abrir: (Long) -
         (servicio.descripcionDetalle ?: servicio.descripcion)?.let { Text(it) }
         Panel {
             Text(moneda(servicio.precio))
-            servicio.horario?.let { Text("Horario · $it") }
-            servicio.duracion?.let { Text("Duración · $it") }
-            servicio.incluidos.orEmpty().forEach { Text("• $it") }
+            servicio.horario?.let { Text("Horario: $it") }
+            servicio.duracion?.let { Text("Duración: $it") }
+            val incluidos = servicio.incluidos.orEmpty()
+            if (incluidos.isNotEmpty()) {
+                Text("Qué incluye", style = MaterialTheme.typography.titleMedium)
+                incluidos.forEach {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(painterResource(R.drawable.ic_check), null, Modifier.size(18.dp),
+                            tint = MaterialTheme.colorScheme.primary)
+                        Text(it)
+                    }
+                }
+            }
         }
         if (detalle.relacionados.isNotEmpty()) Section("También te puede interesar")
         detalle.relacionados.forEach { ServicioCard(it, abrir) }

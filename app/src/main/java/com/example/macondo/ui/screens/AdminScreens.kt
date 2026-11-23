@@ -54,8 +54,8 @@ fun AdminHabitacionesScreen(admin: AdminRepository, editar: (Long) -> Unit, nuev
         if (habitaciones.isEmpty()) Text("No hay habitaciones registradas.")
         habitaciones.forEach { habitacion ->
             Panel {
-                Section("${habitacion.numero} · ${habitacion.nombre}")
-                Text("${habitacion.estado} · ${habitacion.capacidad} huéspedes")
+                Section("${habitacion.numero} - ${habitacion.nombre}")
+                Text("${habitacion.estado}, ${habitacion.capacidad} huéspedes")
                 habitacion.tipoHabitacion?.let { Text(it.nombre) }
                 Secondary("Editar") { editar(habitacion.id) }
                 Secondary("Cambiar estado", !estado.guardando) {
@@ -160,7 +160,7 @@ fun AdminTiposScreen(admin: AdminRepository, catalogo: CatalogRepository) {
             tipos.forEach { tipo ->
                 Panel {
                     Section(tipo.nombre)
-                    Text("${tipo.capacidadPersonas} huéspedes · ${moneda(tipo.precioNoche)}")
+                    Text("${tipo.capacidadPersonas} huéspedes, ${moneda(tipo.precioNoche)}")
                     Secondary("Editar", !estado.guardando) { seleccionado = tipo.id; editando = true }
                     TextButton(onClick = { borrar = tipo }, enabled = !estado.guardando) { Text("Eliminar") }
                 }
@@ -210,7 +210,7 @@ fun AdminServiciosScreen(admin: AdminRepository, editar: (Long) -> Unit, nuevo: 
         servicios.forEach { servicio ->
             Panel {
                 Section(servicio.nombre)
-                Text("${if (servicio.activo) "Activo" else "Inactivo"} · ${moneda(servicio.precio)}")
+                Text("${if (servicio.activo) "Activo" else "Inactivo"}, ${moneda(servicio.precio)}")
                 servicio.id?.let { id ->
                     Secondary("Editar") { editar(id) }
                     Secondary(if (servicio.activo) "Desactivar" else "Activar", !estado.guardando) {

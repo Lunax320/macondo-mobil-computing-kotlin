@@ -46,13 +46,13 @@ fun OperadorReservasScreen(operaciones: OperationsRepository, abrir: (String) ->
 private fun ReservaOperativaFila(reserva: Reserva, abrir: () -> Unit) {
     val habitacion = reserva.habitacion?.numero?.let { "Habitación $it" }
     val huesped = reserva.cliente?.nombreCompleto?.takeIf(String::isNotBlank)
-    val contexto = listOfNotNull(habitacion, huesped).joinToString(" · ")
+    val contexto = listOfNotNull(habitacion, huesped).joinToString(", ")
     ListItem(
         modifier = Modifier.clickable(onClickLabel = "Ver reserva", onClick = abrir),
         headlineContent = { Text(reserva.numeroReserva) },
         supportingContent = {
             if (contexto.isNotEmpty()) Text(contexto)
-            Text("${fechaVisible(reserva.fechaInicio)} – ${fechaVisible(reserva.fechaFin)}")
+            Text("${fechaVisible(reserva.fechaInicio)} al ${fechaVisible(reserva.fechaFin)}")
         },
         trailingContent = { Text(reserva.estado.lowercase().replaceFirstChar(Char::uppercase)) }
     )
@@ -77,7 +77,7 @@ fun OperadorDetalleScreen(
         reserva.cuenta?.let { cuentaDetalle ->
             Panel {
                 Section("Cuenta")
-                Text("${cuentaDetalle.estado} · ${moneda(cuentaDetalle.total)}")
+                Text("${cuentaDetalle.estado}, ${moneda(cuentaDetalle.total)}")
             }
         }
         if (reserva.estado == "CONFIRMADA") {
@@ -143,9 +143,9 @@ fun CuentaScreen(
                 .fold(java.math.BigDecimal.ZERO) { total, pago -> total.add(pago.monto) })
             Panel {
                 Section("Cuenta ${cuenta.estado.lowercase()}")
-                Text("Total · ${moneda(cuenta.total)}")
-                Text("Saldo · ${moneda(saldo)}")
-                pagos.forEach { Text("${it.metodoPago} · ${moneda(it.monto)} · ${it.estado}") }
+                Text("Total: ${moneda(cuenta.total)}")
+                Text("Saldo: ${moneda(saldo)}")
+                pagos.forEach { Text("${it.metodoPago}, ${moneda(it.monto)}, ${it.estado}") }
             }
 
             Section("Consumos")
@@ -154,7 +154,7 @@ fun CuentaScreen(
             if (consumos.isEmpty()) Text("No hay consumos registrados.")
             consumos.forEach { consumo ->
                 Panel {
-                    Text("${consumo.cantidad} × ${consumo.servicio}")
+                    Text("${consumo.servicio} (cantidad: ${consumo.cantidad})")
                     Text(moneda(consumo.precio))
                     if (abierta) TextButton(enabled = operable, onClick = { eliminar = consumo }) {
                         Text("Quitar consumo")
@@ -166,7 +166,7 @@ fun CuentaScreen(
                 FormSection("Añadir consumo", "Selecciona el servicio y define cuántas unidades se cargan.") {
                     Selector("Servicio", servicio, datos.servicios, { it.nombre }) { servicioId = it.id }
                     StepperField("Cantidad", cantidad) { cantidad = it }
-                    servicio?.let { Text("Precio por unidad · ${moneda(it.precio)}") }
+                    servicio?.let { Text("Precio por unidad: ${moneda(it.precio)}") }
                 }
                 Primary("Agregar consumo", servicioId != null && cantidad > 0 && operable) {
                     val id = servicioId ?: return@Primary
@@ -180,7 +180,7 @@ fun CuentaScreen(
                     FormSection("Método de pago", "Selecciona cómo se recibió el saldo.") {
                         ChoiceChips("Medio", medio, listOf("EFECTIVO", "TARJETA", "TRANSFERENCIA"),
                             { it.lowercase().replaceFirstChar(Char::uppercase) }) { medio = it }
-                        Text("Saldo pendiente · ${moneda(saldo)}")
+                        Text("Saldo pendiente: ${moneda(saldo)}")
                     }
                     Primary("Registrar pago", operable) { confirmarPago = true }
                 }

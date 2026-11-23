@@ -16,11 +16,13 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.macondo.R
 import com.example.macondo.data.TipoHabitacion
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
@@ -113,7 +115,10 @@ fun TipoHabitacionOption(tipo: TipoHabitacion, selected: Boolean, onClick: () ->
                 Text("Hasta ${tipo.capacidadPersonas} huéspedes", style = MaterialTheme.typography.bodyMedium)
                 Text("${moneda(tipo.precioNoche)} por noche", style = MaterialTheme.typography.labelLarge)
             }
-            if (selected) Text("✓", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
+            if (selected) Icon(
+                painterResource(R.drawable.ic_check), "Habitación seleccionada",
+                tint = MaterialTheme.colorScheme.onSecondaryContainer
+            )
         }
     }
 }
@@ -274,7 +279,8 @@ fun TagEditor(label: String, items: List<String>, onItemsChange: (List<String>) 
                     InputChip(
                         selected = true,
                         onClick = { onItemsChange(items.filterNot { it == item }) },
-                        label = { Text("$item  ×") }
+                        label = { Text(item) },
+                        trailingIcon = { Icon(painterResource(R.drawable.ic_close), "Quitar $item", Modifier.size(16.dp)) }
                     )
                 }
             }

@@ -84,9 +84,9 @@ fun ReservaCard(
         else Modifier.clickable(onClickLabel = "Ver detalle de la reserva", onClick = abrirDetalle)
     Panel(modifier) {
         Section(reserva.numeroReserva)
-        Text("${reserva.fechaInicio} al ${reserva.fechaFin} · ${reserva.cantidadPersonas} huéspedes")
+        Text("${reserva.fechaInicio} al ${reserva.fechaFin} para ${reserva.cantidadPersonas} huéspedes")
         Text(reserva.estado)
-        reserva.habitacion?.let { Text("${it.nombre} · habitación ${it.numero}") }
+        reserva.habitacion?.let { Text("${it.nombre}, habitación ${it.numero}") }
         Text(moneda(reserva.total), style = MaterialTheme.typography.titleMedium)
         acciones()
     }
@@ -207,7 +207,7 @@ fun ReservaFormScreen(
                 disponibilidadModel.invalidar()
             }
             tipo?.let {
-                Text("Hasta ${it.capacidadPersonas} huéspedes · ${moneda(it.precioNoche)} por noche")
+                Text("Hasta ${it.capacidadPersonas} huéspedes, ${moneda(it.precioNoche)} por noche")
             }
         }
 
@@ -232,8 +232,8 @@ fun ReservaFormScreen(
             val noches = java.time.temporal.ChronoUnit.DAYS.between(fechaInicio, fechaFin)
             val subtotal = tipo.precioNoche.multiply(noches.toBigDecimal())
             FormSection("Resumen de la estadía") {
-                Text("${tipo.nombre} · $noches ${if (noches == 1L) "noche" else "noches"}")
-                Text("Alojamiento estimado · ${moneda(subtotal)}")
+                Text("${tipo.nombre}, $noches ${if (noches == 1L) "noche" else "noches"}")
+                Text("Alojamiento estimado: ${moneda(subtotal)}")
                 if (promociones != null && (reservaId == null || codigo.isNotBlank())) {
                     CodigoPromocionalSection(
                         codigo = codigo,
@@ -273,24 +273,38 @@ private fun CodigoPromocionalSection(
     descuentoGuardado: BigDecimal?, error: String?, cambiarCodigo: (String) -> Unit, calcular: () -> Unit
 ) {
     HorizontalDivider()
+    Text("Promoción", style = MaterialTheme.typography.titleMedium)
     if (editable) {
         Field("Código promocional (opcional)", codigo, isError = error != null, supportingText = error) { cambiarCodigo(it) }
     } else {
-        Text("Código actual · $codigo")
-        descuentoGuardado?.let { Text("Descuento anterior · ${moneda(it)}") }
+        Text("Código actual: $codigo")
+        descuentoGuardado?.let { Text("Descuento anterior: ${moneda(it)}") }
         error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
     }
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        TextButton(onClick = calcular, enabled = habilitado && codigo.isNotBlank()) {
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        OutlinedButton(onClick = calcular, enabled = habilitado && codigo.isNotBlank()) {
             Text(if (editable) "Aplicar código" else "Recalcular descuento")
         }
         if (editable && codigo.isNotBlank()) {
             TextButton(onClick = { cambiarCodigo("") }, enabled = habilitado) { Text("Quitar") }
         }
     }
-    aplicada?.let {
-        Text("Descuento · ${moneda(it.descuento)}")
-        Text("Total estimado · ${moneda(it.total)}", style = MaterialTheme.typography.titleMedium)
+    aplicada?.let { cotizacion ->
+        val colores = MaterialTheme.colorScheme
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = MaterialTheme.shapes.medium,
+            color = colores.primaryContainer,
+            contentColor = colores.onPrimaryContainer
+        ) {
+            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(cotizacion.nombre?.takeIf(String::isNotBlank) ?: "Descuento calculado",
+                    style = MaterialTheme.typography.labelLarge)
+                Text("Ahorras ${moneda(cotizacion.descuento)}", style = MaterialTheme.typography.bodyMedium)
+                Text("Total estimado", style = MaterialTheme.typography.labelLarge)
+                Text(moneda(cotizacion.total), style = MaterialTheme.typography.headlineSmall)
+            }
+        }
     }
 }
 
@@ -316,8 +330,8 @@ fun HistorialScreen(
                 if (datos.comentarios != null && reserva.estado == "FINALIZADA") {
                     comentario?.let {
                         Text(it.texto)
-                        val estadoComentario = if (it.publicado) "Publicado" else "Pendiente · referencia ${it.id}"
-                        Text("${it.calificacion} de 5 · $estadoComentario")
+                        val estadoComentario = if (it.publicado) "Publicado" else "Pendiente, referencia ${it.id}"
+                        Text("${it.calificacion} de 5. $estadoComentario")
                     }
                     Secondary(if (comentario == null) "Comentar estadía" else "Editar comentario", !estado.guardando) {
                         editando = reserva
@@ -337,7 +351,7 @@ fun HistorialScreen(
                 title = { Text(if (comentario == null) "Comentar estadía" else "Editar comentario") },
                 text = {
                     Column {
-                        ChoiceChips("Tu calificación", calificacion, (1..5).toList(), { "$it ★" }) { calificacion = it }
+                        ChoiceChips("Tu calificación", calificacion, (1..5).toList(), { "$it de 5" }) { calificacion = it }
                         Field("Tu comentario", texto, multilinea = true) { if (it.length <= 500) texto = it }
                     }
                 },
@@ -373,7 +387,7 @@ fun PagosScreen(reservas: ReservationRepository, clienteId: Long) {
             Panel {
                 Section(pago.numeroReserva ?: "Pago registrado")
                 Text(moneda(pago.monto))
-                Text("${pago.metodoPago} · ${pago.estado}")
+                Text("${pago.metodoPago}, ${pago.estado}")
                 Text(pago.fechaPago.replace('T', ' '))
             }
         }

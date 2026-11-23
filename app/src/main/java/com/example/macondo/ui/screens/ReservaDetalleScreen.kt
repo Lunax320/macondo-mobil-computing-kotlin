@@ -120,7 +120,8 @@ private fun CargosCuenta(alojamiento: BigDecimal?, cuenta: CuentaDetalleCliente)
         alojamiento?.let { DatoEstadia("Alojamiento", moneda(it)) }
         cuenta.consumos.orEmpty().forEach { consumo ->
             HorizontalDivider()
-            DatoEstadia("${consumo.cantidad} × ${consumo.servicio}", moneda(consumo.precio.multiply(consumo.cantidad.toBigDecimal())))
+            DatoEstadia("${consumo.servicio} (cantidad: ${consumo.cantidad})",
+                moneda(consumo.precio.multiply(consumo.cantidad.toBigDecimal())))
         }
         HorizontalDivider()
         DatoEstadia("Total de cargos", moneda(cuenta.total))
@@ -136,7 +137,7 @@ private fun PagosRegistrados(cuenta: CuentaDetalleCliente) {
         pagos.forEachIndexed { index, pago ->
             if (index > 0) HorizontalDivider()
             DatoEstadia(pago.metodoPago, moneda(pago.monto))
-            Text("${pago.fechaPago.replace('T', ' ')} · ${pago.estado}", style = MaterialTheme.typography.bodySmall)
+            Text("${pago.fechaPago.replace('T', ' ')}, ${pago.estado}", style = MaterialTheme.typography.bodySmall)
         }
     }
 }

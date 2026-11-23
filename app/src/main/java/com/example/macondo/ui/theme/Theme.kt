@@ -54,9 +54,9 @@ private val Oscuro = darkColorScheme(
 )
 
 @Composable
-fun MacondoTheme(content: @Composable () -> Unit) {
+fun MacondoTheme(oscuro: Boolean = isSystemInDarkTheme(), content: @Composable () -> Unit) {
     MaterialTheme(
-        colorScheme = if (isSystemInDarkTheme()) Oscuro else Claro,
+        colorScheme = if (oscuro) Oscuro else Claro,
         typography = MacondoTypography
     ) {
         Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background, content = content)

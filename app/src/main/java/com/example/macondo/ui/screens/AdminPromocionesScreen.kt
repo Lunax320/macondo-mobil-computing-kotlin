@@ -28,7 +28,6 @@ fun AdminPromocionesScreen(repo: PromocionesRepository, abrirFormulario: (Long?)
                 editar = { abrirFormulario(promocion.id) },
                 borrar = { borrar = promocion }
             )
-            HorizontalDivider()
         }
     }
     borrar?.let { promocion ->
@@ -41,14 +40,30 @@ fun AdminPromocionesScreen(repo: PromocionesRepository, abrirFormulario: (Long?)
 
 @Composable
 private fun PromocionAdminFila(promocion: Promocion, disponible: Boolean, editar: () -> Unit, borrar: () -> Unit) {
-    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Panel {
+        val colores = MaterialTheme.colorScheme
+        Surface(
+            shape = MaterialTheme.shapes.small,
+            color = if (promocion.activa) colores.primaryContainer else colores.surfaceVariant,
+            contentColor = if (promocion.activa) colores.onPrimaryContainer else colores.onSurfaceVariant
+        ) {
+            Text(
+                if (promocion.activa) "Publicada" else "Pausada",
+                Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                style = MaterialTheme.typography.labelMedium
+            )
+        }
         Text(promocion.nombre, style = MaterialTheme.typography.titleMedium)
-        Text("${promocion.codigo} · ${beneficio(promocion)}")
-        Text("${fechaVisible(promocion.fechaInicio)} – ${fechaVisible(promocion.fechaFin)}")
-        Text(if (promocion.activa) "Publicada" else "Pausada", style = MaterialTheme.typography.labelMedium)
-        if (promocion.id != null) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            TextButton(onClick = editar, enabled = disponible) { Text("Editar") }
-            TextButton(onClick = borrar, enabled = disponible) { Text("Eliminar") }
+        Text(beneficio(promocion), color = colores.primary, style = MaterialTheme.typography.titleMedium)
+        Text("Código: ${promocion.codigo}", color = colores.onSurfaceVariant)
+        Text("Del ${fechaVisible(promocion.fechaInicio)} al ${fechaVisible(promocion.fechaFin)}",
+            color = colores.onSurfaceVariant)
+        if (promocion.id != null) FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = editar, enabled = disponible) { Text("Editar") }
+            TextButton(
+                onClick = borrar, enabled = disponible,
+                colors = ButtonDefaults.textButtonColors(contentColor = colores.error)
+            ) { Text("Eliminar") }
         }
     }
 }
