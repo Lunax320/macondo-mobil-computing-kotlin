@@ -29,4 +29,3 @@ interface PromocionesApi {
     @DELETE("promociones/{id}")
     suspend fun eliminar(@Path("id") id: Long)
 }
-

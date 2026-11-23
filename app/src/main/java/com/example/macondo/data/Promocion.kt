@@ -24,3 +24,11 @@ data class PromocionAplicada(
     val descuento: BigDecimal,
     val total: BigDecimal
 )
+
+internal data class SolicitudPromocion(
+    val codigo: String,
+    val tipoId: Long,
+    val entrada: String,
+    val salida: String,
+    val precioNoche: BigDecimal
+)

@@ -94,10 +94,6 @@ fun ReservaCard(
 
 private data class DisponibilidadConsulta(val tipoId: Long, val solicitud: ReservaSolicitud)
 
-private data class SolicitudPromocion(
-    val codigo: String, val tipoId: Long, val entrada: String, val salida: String, val precioNoche: BigDecimal
-)
-
 private data class Disponibilidad(
     val consulta: DisponibilidadConsulta? = null,
     val cargando: Boolean = false,
