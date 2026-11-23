@@ -17,10 +17,12 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.macondo.data.*
 import com.example.macondo.data.remote.mensajeParaUsuario
 import com.example.macondo.data.repository.AccountRepository
+import com.example.macondo.data.repository.PromocionesRepository
 import com.example.macondo.data.repository.ReservationRepository
 import com.example.macondo.ui.components.*
 import com.example.macondo.ui.screenModel
 import java.time.LocalDate
+import java.math.BigDecimal
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -87,6 +89,10 @@ fun ReservaCard(reserva: Reserva, acciones: @Composable ColumnScope.() -> Unit =
 
 private data class DisponibilidadConsulta(val tipoId: Long, val solicitud: ReservaSolicitud)
 
+private data class SolicitudPromocion(
+    val codigo: String, val tipoId: Long, val entrada: String, val salida: String, val precioNoche: BigDecimal
+)
+
 private data class Disponibilidad(
     val consulta: DisponibilidadConsulta? = null,
     val cargando: Boolean = false,
@@ -122,14 +128,20 @@ private class AvailabilityModel : ViewModel() {
 @Composable
 fun ReservaFormScreen(
     reservas: ReservationRepository, clienteId: Long, reservaId: Long?, tipoInicial: Long?,
+    promociones: PromocionesRepository? = null,
     alGuardar: (Reserva) -> Unit
 ) {
     val model = screenModel("reserva:$clienteId:$reservaId") { reservas.formulario(clienteId, reservaId) }
     val disponibilidadModel: AvailabilityModel = viewModel(factory = viewModelFactory { initializer { AvailabilityModel() } })
     val disponibilidad by disponibilidadModel.estado.collectAsStateWithLifecycle()
+    val promoModel = screenModel("cotizar-promocion") { Unit }
+    val estadoPromo by promoModel.estado.collectAsStateWithLifecycle()
 
     RemotePage(if (reservaId == null) "Nueva reserva" else "Editar reserva", model) { datos, estado ->
         val reserva = datos.reserva
+        var codigo by rememberSaveable(reserva?.id) { mutableStateOf(reserva?.codigoPromocional.orEmpty()) }
+        var solicitudPromo by remember(reserva?.id) { mutableStateOf<SolicitudPromocion?>(null) }
+        var resultadoPromo by remember(reserva?.id) { mutableStateOf<PromocionAplicada?>(null) }
         var tipoId by rememberSaveable(reserva?.id, tipoInicial) {
             mutableStateOf(reserva?.habitacion?.tipoHabitacion?.id ?: tipoInicial)
         }
@@ -146,7 +158,12 @@ fun ReservaFormScreen(
                 cantidad !in 1..tipo.capacidadPersonas) null
             else DisponibilidadConsulta(seleccionado, ReservaSolicitud(entrada, salida, cantidad))
         }
-        val resultado = disponibilidad.takeIf { it.consulta == consulta }
+        val resultado = disponibilidad.takeIf { consulta != null && it.consulta == consulta }
+        val criteriosPromo = if (promociones != null && consulta != null && tipo != null && codigo.isNotBlank()) {
+            SolicitudPromocion(codigo.trim(), consulta.tipoId, entrada, salida, tipo.precioNoche)
+        } else null
+        val promoVigente = resultadoPromo.takeIf { criteriosPromo != null && solicitudPromo == criteriosPromo }
+        val codigoListo = reservaId != null || promociones == null || codigo.isBlank() || promoVigente?.codigo != null
         FormSection("Elige tu habitación", "Compara capacidad y tarifa antes de consultar fechas.") {
             if (datos.tipos.isEmpty()) Text("No hay opciones de habitación disponibles por el momento.")
             datos.tipos.forEach { opcion ->
@@ -164,8 +181,7 @@ fun ReservaFormScreen(
             DateField("Salida", salida) { salida = it; disponibilidadModel.invalidar() }
             if (fechaInicio != null && fechaFin != null && fechaFin.isAfter(fechaInicio)) {
                 val noches = java.time.temporal.ChronoUnit.DAYS.between(fechaInicio, fechaFin)
-                Text("$noches ${if (noches == 1L) "noche" else "noches"} · ${moneda(tipo?.precioNoche?.multiply(noches.toBigDecimal()))}",
-                    style = MaterialTheme.typography.titleMedium)
+                Text("$noches ${if (noches == 1L) "noche" else "noches"}", style = MaterialTheme.typography.titleMedium)
             }
             if (fechaInicio != null && fechaInicio.isBefore(LocalDate.now())) {
                 Text("La entrada debe ser hoy o después.", color = MaterialTheme.colorScheme.error)
@@ -205,16 +221,72 @@ fun ReservaFormScreen(
                 disponibilidadActual.unidades?.let { unidades ->
                     Text(if (unidades.isEmpty()) "No hay habitaciones para estas fechas. Prueba otros días."
                         else "Encontramos ${unidades.size} ${if (unidades.size == 1) "habitación" else "habitaciones"}.")
-                    if (unidades.isNotEmpty() && consulta != null) {
-                        Primary(if (reservaId == null) "Confirmar reserva" else "Guardar cambios", !estado.guardando) {
-                            model.ejecutar("Reserva guardada", recargar = false) {
-                                alGuardar(reservas.guardar(clienteId, consulta.tipoId, consulta.solicitud, reservaId))
-                            }
+                }
+            }
+        }
+        if (consulta != null && resultado?.unidades?.isNotEmpty() == true && tipo != null) {
+            val noches = java.time.temporal.ChronoUnit.DAYS.between(fechaInicio, fechaFin)
+            val subtotal = tipo.precioNoche.multiply(noches.toBigDecimal())
+            FormSection("Resumen de la estadía") {
+                Text("${tipo.nombre} · $noches ${if (noches == 1L) "noche" else "noches"}")
+                Text("Alojamiento estimado · ${moneda(subtotal)}")
+                if (promociones != null && (reservaId == null || codigo.isNotBlank())) {
+                    CodigoPromocionalSection(
+                        codigo = codigo,
+                        editable = reservaId == null,
+                        habilitado = !estado.guardando && !estadoPromo.guardando,
+                        aplicada = promoVigente,
+                        descuentoGuardado = reserva?.descuentoPromocional,
+                        error = estadoPromo.error.takeIf { solicitudPromo == criteriosPromo },
+                        cambiarCodigo = { nuevo -> codigo = nuevo; solicitudPromo = null; resultadoPromo = null }
+                    ) {
+                        val criterios = criteriosPromo ?: return@CodigoPromocionalSection
+                        solicitudPromo = criterios
+                        resultadoPromo = null
+                        promoModel.ejecutar("Promoción calculada", recargar = false) {
+                            resultadoPromo = promociones.calcular(
+                                criterios.codigo, criterios.entrada, criterios.salida, criterios.precioNoche
+                            )
                         }
                     }
                 }
             }
+            Primary(if (reservaId == null) "Confirmar reserva" else "Guardar cambios",
+                codigoListo && !estado.guardando && !estadoPromo.guardando) {
+                val solicitud = if (reservaId == null) consulta.solicitud.copy(codigoPromocional = promoVigente?.codigo)
+                    else consulta.solicitud
+                model.ejecutar("Reserva guardada", recargar = false) {
+                    alGuardar(reservas.guardar(clienteId, consulta.tipoId, solicitud, reservaId))
+                }
+            }
         }
+    }
+}
+
+@Composable
+private fun CodigoPromocionalSection(
+    codigo: String, editable: Boolean, habilitado: Boolean, aplicada: PromocionAplicada?,
+    descuentoGuardado: BigDecimal?, error: String?, cambiarCodigo: (String) -> Unit, calcular: () -> Unit
+) {
+    HorizontalDivider()
+    if (editable) {
+        Field("Código promocional (opcional)", codigo, isError = error != null, supportingText = error) { cambiarCodigo(it) }
+    } else {
+        Text("Código actual · $codigo")
+        descuentoGuardado?.let { Text("Descuento anterior · ${moneda(it)}") }
+        error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+    }
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        TextButton(onClick = calcular, enabled = habilitado && codigo.isNotBlank()) {
+            Text(if (editable) "Aplicar código" else "Recalcular descuento")
+        }
+        if (editable && codigo.isNotBlank()) {
+            TextButton(onClick = { cambiarCodigo("") }, enabled = habilitado) { Text("Quitar") }
+        }
+    }
+    aplicada?.let {
+        Text("Descuento · ${moneda(it.descuento)}")
+        Text("Total estimado · ${moneda(it.total)}", style = MaterialTheme.typography.titleMedium)
     }
 }
 

@@ -54,11 +54,15 @@ data class Sesion(
     fun tiene(vararg autoridades: String) = autoridades.any { it == rol || it in roles }
 }
 
-data class ReservaSolicitud(val fechaInicio: String, val fechaFin: String, val cantidadPersonas: Int)
+data class ReservaSolicitud(
+    val fechaInicio: String, val fechaFin: String, val cantidadPersonas: Int,
+    val codigoPromocional: String? = null
+)
 data class Reserva(
     val id: Long, val numeroReserva: String, val fechaInicio: String, val fechaFin: String,
     val cantidadPersonas: Int, val estado: String, val precioNoche: BigDecimal?, val total: BigDecimal?,
-    val habitacion: Habitacion?, val cliente: Cliente?, val cuenta: Cuenta?
+    val habitacion: Habitacion?, val cliente: Cliente?, val cuenta: Cuenta?,
+    val codigoPromocional: String? = null, val descuentoPromocional: BigDecimal? = null
 )
 data class ReservaIdentificador(val idReserva: Long)
 data class Cuenta(val id: Long, val estado: String, val total: BigDecimal, val consumos: List<Consumo>, val pagos: List<Pago>)

@@ -219,7 +219,7 @@ internal fun MacondoApp(
             composable(Routes.nuevaReserva, arguments = listOf(idArgument("id"), idArgument("tipoId", opcional = true))) { destino ->
                 ClienteDest(destino, sesion, abrirPerfil) { id ->
                     val tipoId = destino.id("tipoId").takeIf { it > 0 }
-                    ReservaFormScreen(reservas, id, null, tipoId) { reserva ->
+                    ReservaFormScreen(reservas, id, null, tipoId, promociones.takeIf { capacidades.calcularPromocion }) { reserva ->
                         scope.launch { snackbar.showSnackbar("Reserva ${reserva.numeroReserva} confirmada.") }
                         nav.reiniciar(Routes.cliente(id))
                         nav.navigate(Routes.activas(id))
@@ -228,7 +228,8 @@ internal fun MacondoApp(
             }
             composable(Routes.editarReserva, arguments = listOf(idArgument("id"), idArgument("reservaId"))) { destino ->
                 ClienteDest(destino, sesion, abrirPerfil) { id ->
-                    ReservaFormScreen(reservas, id, destino.id("reservaId"), null) {
+                    ReservaFormScreen(reservas, id, destino.id("reservaId"), null,
+                        promociones.takeIf { capacidades.calcularPromocion }) {
                         scope.launch { snackbar.showSnackbar("Cambios guardados.") }
                         nav.reiniciar(Routes.cliente(id))
                         nav.navigate(Routes.activas(id))
