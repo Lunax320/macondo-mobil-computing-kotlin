@@ -24,3 +24,12 @@ data class CuentaDetalleCliente(
     val consumos: List<Consumo>,
     val pagos: List<Pago>
 )
+
+data class PagoWompiSolicitud(val monto: BigDecimal)
+
+data class CheckoutWompi(
+    val referencia: String,
+    val checkoutUrl: String,
+    val monto: BigDecimal,
+    val estado: String
+)

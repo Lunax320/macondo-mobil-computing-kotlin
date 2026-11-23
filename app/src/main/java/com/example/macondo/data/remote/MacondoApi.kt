@@ -75,6 +75,11 @@ interface ReservationApi {
     @GET("reserva/cliente/{id}/{reservaId}/detalle")
     suspend fun detalleCliente(@Path("id") id: Long, @Path("reservaId") reservaId: Long): ReservaDetalleCliente
 
+    @POST("reserva/cliente/{id}/{reservaId}/pago/wompi")
+    suspend fun iniciarWompi(
+        @Path("id") id: Long, @Path("reservaId") reservaId: Long, @Body solicitud: PagoWompiSolicitud
+    ): CheckoutWompi
+
     @GET("reserva/cliente/{id}/activas")
     suspend fun activas(@Path("id") id: Long): List<Reserva>
 
