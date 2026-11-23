@@ -74,6 +74,18 @@ class ReservationRepository @Inject constructor(
     private val cuentas: AccountApi,
     private val catalogo: CatalogApi
 ) : ReservationApi by api {
+    suspend fun detalle(clienteId: Long, reservaId: Long, historial: Boolean, cuentaDisponible: Boolean): ReservaDetalleCliente {
+        if (cuentaDisponible) return api.detalleCliente(clienteId, reservaId)
+        val reservas = if (historial) api.historial(clienteId) else api.activas(clienteId)
+        val reserva = reservas.firstOrNull { it.id == reservaId }
+            ?: throw IllegalStateException("La reserva ya no aparece en este listado.")
+        return ReservaDetalleCliente(
+            reserva.id, reserva.numeroReserva, reserva.fechaInicio, reserva.fechaFin, reserva.cantidadPersonas,
+            reserva.estado, reserva.precioNoche, reserva.total, reserva.habitacion?.numero,
+            reserva.habitacion?.tipoHabitacion?.nombre, null
+        )
+    }
+
     suspend fun formulario(clienteId: Long, reservaId: Long?): FormularioReserva = coroutineScope {
         val tipos = async { catalogo.tipos() }
         val reserva = reservaId?.let { id -> async { api.editable(clienteId, id) } }

@@ -18,6 +18,8 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.*
 import androidx.navigation.navArgument
 import com.example.macondo.data.Sesion
+import com.example.macondo.data.remote.CapacidadesApi
+import com.example.macondo.data.remote.DescubrimientoApi
 import com.example.macondo.data.repository.*
 import com.example.macondo.ui.components.HotelImage
 import com.example.macondo.ui.components.Page
@@ -32,7 +34,8 @@ internal fun MacondoApp(
     cuentas: AccountRepository,
     reservas: ReservationRepository,
     operaciones: OperationsRepository,
-    admin: AdminRepository
+    admin: AdminRepository,
+    descubrimiento: DescubrimientoApi
 ) {
     val sesion by cuentas.sesion.collectAsStateWithLifecycle()
     val nav = rememberNavController()
@@ -41,6 +44,9 @@ internal fun MacondoApp(
     val snackbar = remember { SnackbarHostState() }
     var restaurando by remember { mutableStateOf(true) }
     var abrirPortalRestaurado by remember { mutableStateOf(false) }
+    var capacidades by remember { mutableStateOf(CapacidadesApi()) }
+
+    LaunchedEffect(descubrimiento) { capacidades = descubrimiento.consultar() }
 
     LaunchedEffect(Unit) {
         try {
@@ -167,11 +173,29 @@ internal fun MacondoApp(
             composable(Routes.activas, arguments = listOf(idArgument("id"))) { destino ->
                 ClienteDest(destino, sesion, abrirPerfil) { id ->
                     ReservasActivasScreen(reservas, id, { nav.navigate(Routes.editarReserva(id, it)) },
-                        { nav.navigate(Routes.nuevaReserva(id)) })
+                        { nav.navigate(Routes.nuevaReserva(id)) },
+                        { nav.navigate(Routes.detalleReserva(id, it)) })
+                }
+            }
+            composable(
+                Routes.detalleReserva,
+                arguments = listOf(idArgument("id"), idArgument("reservaId"), navArgument("historial") {
+                    type = NavType.BoolType
+                    defaultValue = false
+                })
+            ) { destino ->
+                ClienteDest(destino, sesion, abrirPerfil) { id ->
+                    ReservaDetalleScreen(
+                        reservas, id, destino.id("reservaId"),
+                        historial = destino.arguments?.getBoolean("historial") == true,
+                        cuentaDisponible = capacidades.detalleReserva
+                    )
                 }
             }
             composable(Routes.historial, arguments = listOf(idArgument("id"))) { destino ->
-                ClienteDest(destino, sesion, abrirPerfil) { HistorialScreen(reservas, cuentas, it) }
+                ClienteDest(destino, sesion, abrirPerfil) { id ->
+                    HistorialScreen(reservas, cuentas, id) { nav.navigate(Routes.detalleReserva(id, it, historial = true)) }
+                }
             }
             composable(Routes.pagos, arguments = listOf(idArgument("id"))) { destino ->
                 ClienteDest(destino, sesion, abrirPerfil) { PagosScreen(reservas, it) }

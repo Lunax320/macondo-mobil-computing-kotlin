@@ -1,9 +1,13 @@
 package com.example.macondo.data.remote
 
 import com.example.macondo.data.*
+import com.google.gson.JsonObject
 import retrofit2.http.*
 
 interface CatalogApi {
+    @GET("../v3/api-docs")
+    suspend fun contrato(): JsonObject
+
     @GET("tipo-habitacion")
     suspend fun tipos(): List<TipoHabitacion>
 
@@ -62,6 +66,9 @@ interface AccountApi {
 }
 
 interface ReservationApi {
+    @GET("reserva/cliente/{id}/{reservaId}/detalle")
+    suspend fun detalleCliente(@Path("id") id: Long, @Path("reservaId") reservaId: Long): ReservaDetalleCliente
+
     @GET("reserva/cliente/{id}/activas")
     suspend fun activas(@Path("id") id: Long): List<Reserva>
 

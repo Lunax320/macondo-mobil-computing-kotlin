@@ -25,7 +25,8 @@ object NetworkModule {
         val cliente = OkHttpClient.Builder().addInterceptor { cadena ->
             val peticion = cadena.request()
             val ruta = peticion.url.encodedPath
-            val esAcceso = ruta.endsWith("/auth/login") || ruta.endsWith("/cliente/registro")
+            val esAcceso = ruta.endsWith("/v3/api-docs") || ruta.endsWith("/cliente/registro") ||
+                ruta.contains("/auth/")
             val token = if (esAcceso) null else sesiones.sesion.value?.token
             val autorizada = if (token == null) peticion
                 else peticion.newBuilder().header("Authorization", "Bearer $token").build()

@@ -19,6 +19,7 @@ internal object Routes {
     const val pagos = "cliente/{id}/pagos"
     const val nuevaReserva = "cliente/{id}/reservas/nueva?tipoId={tipoId}"
     const val editarReserva = "cliente/{id}/reservas/{reservaId}/editar"
+    const val detalleReserva = "cliente/{id}/reservas/{reservaId}?historial={historial}"
     const val perfil = "cliente/{id}/perfil"
 
     const val operador = "operador"
@@ -64,5 +65,7 @@ internal object Routes {
     fun nuevaReserva(id: Long, tipoId: Long? = null) =
         "cliente/$id/reservas/nueva" + (tipoId?.let { "?tipoId=$it" } ?: "")
     fun editarReserva(id: Long, reservaId: Long) = "cliente/$id/reservas/$reservaId/editar"
+    fun detalleReserva(id: Long, reservaId: Long, historial: Boolean = false) =
+        "cliente/$id/reservas/$reservaId?historial=$historial"
     fun perfil(id: Long) = "cliente/$id/perfil"
 }

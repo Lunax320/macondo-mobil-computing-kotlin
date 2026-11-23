@@ -43,7 +43,8 @@ fun PortalClienteScreen(
 
 @Composable
 fun ReservasActivasScreen(
-    reservas: ReservationRepository, clienteId: Long, editar: (Long) -> Unit, nueva: () -> Unit
+    reservas: ReservationRepository, clienteId: Long, editar: (Long) -> Unit, nueva: () -> Unit,
+    abrirDetalle: (Long) -> Unit
 ) {
     val model = screenModel("activas:$clienteId") { reservas.activas(clienteId) }
     var seleccion by remember { mutableStateOf<Reserva?>(null) }
@@ -52,6 +53,7 @@ fun ReservasActivasScreen(
         if (activas.isEmpty()) Text("Todavía no tienes reservas activas.")
         activas.forEach { reserva ->
             ReservaCard(reserva) {
+                TextButton(onClick = { abrirDetalle(reserva.id) }) { Text("Ver detalle") }
                 if (reserva.fechaInicio > LocalDate.now().toString() &&
                     reserva.estado in setOf("CONFIRMADA", "ACTIVA")) {
                     Secondary("Editar reserva", !estado.guardando && !estado.cargando) { editar(reserva.id) }
@@ -217,7 +219,9 @@ fun ReservaFormScreen(
 }
 
 @Composable
-fun HistorialScreen(reservas: ReservationRepository, cuentas: AccountRepository, clienteId: Long) {
+fun HistorialScreen(
+    reservas: ReservationRepository, cuentas: AccountRepository, clienteId: Long, abrirDetalle: (Long) -> Unit
+) {
     val model = screenModel("historial:$clienteId") { reservas.historialConComentarios(clienteId) }
     var filtro by rememberSaveable { mutableStateOf("TODAS") }
     var editando by remember { mutableStateOf<Reserva?>(null) }
@@ -233,6 +237,7 @@ fun HistorialScreen(reservas: ReservationRepository, cuentas: AccountRepository,
         visibles.forEach { reserva ->
             val comentario = datos.comentarios?.get(reserva.id)
             ReservaCard(reserva) {
+                TextButton(onClick = { abrirDetalle(reserva.id) }) { Text("Ver detalle") }
                 if (datos.comentarios != null && reserva.estado == "FINALIZADA") {
                     comentario?.let {
                         Text(it.texto)
