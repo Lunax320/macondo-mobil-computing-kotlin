@@ -306,7 +306,7 @@ fun PagosScreen(reservas: ReservationRepository, clienteId: Long) {
 }
 
 @Composable
-fun PerfilScreen(cuentas: AccountRepository, clienteId: Long) {
+fun PerfilScreen(cuentas: AccountRepository, clienteId: Long, verificacionCorreo: Boolean = false) {
     val model = screenModel("perfil:$clienteId") { cuentas.perfil(clienteId) }
     var cambiarClave by rememberSaveable { mutableStateOf(false) }
     var borrar by rememberSaveable { mutableStateOf(false) }
@@ -315,8 +315,11 @@ fun PerfilScreen(cuentas: AccountRepository, clienteId: Long) {
     var confirmacion by remember { mutableStateOf("") }
 
     RemotePage("Mi perfil", model) { perfil, estado ->
-        ClienteFields(perfil) { solicitud, valido ->
-            Text("Si cambias el correo, deberás volver a iniciar sesión.")
+        ClienteFields(perfil, soloGmail = verificacionCorreo) { solicitud, valido ->
+            if (!perfil.correo.equals(solicitud.correo, ignoreCase = true)) {
+                Text(if (verificacionCorreo) "Verifica el correo nuevo antes de volver a iniciar sesión."
+                    else "Si cambias el correo, deberás volver a iniciar sesión.")
+            }
             Primary("Guardar perfil", valido && !estado.guardando) {
                 model.ejecutar("Perfil actualizado") { cuentas.actualizarPerfil(clienteId, solicitud) }
             }

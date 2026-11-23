@@ -2,6 +2,7 @@ package com.example.macondo.ui.screens
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.text.input.KeyboardType
@@ -11,7 +12,10 @@ import com.example.macondo.ui.components.*
 import com.example.macondo.ui.screenModel
 
 @Composable
-fun LoginScreen(cuentas: AccountRepository, registrar: () -> Unit) {
+fun LoginScreen(
+    cuentas: AccountRepository, verificacionCorreo: Boolean,
+    recuperar: (() -> Unit)?, registrar: () -> Unit
+) {
     val model = screenModel("login") { Unit }
     var correo by rememberSaveable { mutableStateOf("") }
     var clave by remember { mutableStateOf("") }
@@ -23,24 +27,33 @@ fun LoginScreen(cuentas: AccountRepository, registrar: () -> Unit) {
                 supportingText = if (correoInvalido) "Revisa el formato del correo." else null) { correo = it }
             Field("Contraseña", clave, secret = true) { clave = it }
         }
-        Primary("Entrar", correo.isNotBlank() && clave.isNotEmpty() && !state.guardando) {
+        Primary("Entrar", correoValido(correo) && clave.isNotEmpty() && !state.guardando) {
             model.ejecutar("Sesión iniciada", recargar = false) {
                 cuentas.iniciar(LoginSolicitud(correo.trim(), clave))
                 clave = ""
             }
+        }
+        recuperar?.let { TextButton(onClick = it, enabled = !state.guardando) { Text("Olvidé mi contraseña") } }
+        if (verificacionCorreo && correoValido(correo, soloGmail = true)) {
+            TextButton(enabled = !state.guardando, onClick = {
+                val solicitud = CorreoSolicitud(correo.trim())
+                model.ejecutar("Si tu cuenta necesita verificación, revisa tu correo.", recargar = false) {
+                    cuentas.reenviarVerificacion(solicitud)
+                }
+            }) { Text("Reenviar correo de verificación") }
         }
         Secondary("Crear una cuenta", enabled = !state.guardando, onClick = registrar)
     }
 }
 
 @Composable
-fun RegistroScreen(cuentas: AccountRepository, entrar: () -> Unit) {
+fun RegistroScreen(cuentas: AccountRepository, verificacionCorreo: Boolean, entrar: (String) -> Unit) {
     val model = screenModel("registro") { Unit }
     var clave by remember { mutableStateOf("") }
     var confirmacion by remember { mutableStateOf("") }
 
     RemotePage("Crear cuenta", model) { _, state ->
-        ClienteFields(null) { cliente, valido ->
+        ClienteFields(null, soloGmail = verificacionCorreo) { cliente, valido ->
             FormSection("Seguridad", "Crea una contraseña y confírmala para proteger tu cuenta.") {
                 Field("Contraseña", clave, secret = true) { clave = it }
                 val noCoinciden = confirmacion.isNotEmpty() && clave != confirmacion
@@ -49,9 +62,10 @@ fun RegistroScreen(cuentas: AccountRepository, entrar: () -> Unit) {
             }
             Primary("Registrarme", valido && clave.isNotEmpty() && confirmacion == clave && !state.guardando) {
                 model.ejecutar("Cuenta creada", recargar = false) {
-                    cuentas.registro(RegistroSolicitud(cliente, clave))
+                    val cuenta = cuentas.registro(RegistroSolicitud(cliente, clave))
                     clave = ""
-                    entrar()
+                    entrar(cuenta.mensaje ?: if (verificacionCorreo) "Revisa tu correo para activar la cuenta."
+                        else "Cuenta creada. Ya puedes iniciar sesión.")
                 }
             }
         }
@@ -59,8 +73,33 @@ fun RegistroScreen(cuentas: AccountRepository, entrar: () -> Unit) {
 }
 
 @Composable
+fun RecuperarContrasenaScreen(cuentas: AccountRepository) {
+    val model = screenModel("recuperar-contrasena") { Unit }
+    var correo by rememberSaveable { mutableStateOf("") }
+    var mensaje by rememberSaveable { mutableStateOf<String?>(null) }
+    RemotePage("Recuperar contraseña", model) { _, estado ->
+        if (mensaje == null) {
+            val valido = correoValido(correo, soloGmail = true)
+            Field("Correo de tu cuenta", correo, tipo = KeyboardType.Email,
+                isError = correo.isNotBlank() && !valido, supportingText = "Usa tu dirección de Gmail.") { correo = it }
+            Primary("Enviar enlace", valido && !estado.guardando) {
+                val solicitud = CorreoSolicitud(correo.trim())
+                model.ejecutar("Solicitud enviada", recargar = false) {
+                    mensaje = cuentas.solicitarRecuperacion(solicitud).mensaje
+                }
+            }
+        } else {
+            Section("Revisa tu correo")
+            Text(mensaje.orEmpty())
+            Text("Abre el enlace recibido para elegir tu nueva contraseña.")
+        }
+    }
+}
+
+@Composable
 fun ClienteFields(
     inicial: Cliente?,
+    soloGmail: Boolean = false,
     contenido: @Composable (Cliente, Boolean) -> Unit
 ) {
     var nombre by rememberSaveable(inicial?.nombre) { mutableStateOf(inicial?.nombre.orEmpty()) }
@@ -77,12 +116,20 @@ fun ClienteFields(
     }
     FormSection("Contacto") {
         Field("Teléfono", telefono, tipo = KeyboardType.Phone) { telefono = it }
-        val correoInvalido = correo.isNotBlank() && !android.util.Patterns.EMAIL_ADDRESS.matcher(correo.trim()).matches()
+        val correoInvalido = correo.isNotBlank() && !correoValido(correo, soloGmail)
         Field("Correo electrónico", correo, tipo = KeyboardType.Email, isError = correoInvalido,
-            supportingText = if (correoInvalido) "Revisa el formato del correo." else null) { correo = it }
+            supportingText = when {
+                soloGmail -> "Usa una dirección de Gmail."
+                correoInvalido -> "Revisa el formato del correo."
+                else -> null
+            }) { correo = it }
     }
     val datos = Cliente(inicial?.id, nombre.trim(), apellido.trim(), cedula.trim(), telefono.trim(), correo.trim())
     val valido = listOf(nombre, apellido, cedula, telefono).all { it.isNotBlank() } &&
-        android.util.Patterns.EMAIL_ADDRESS.matcher(datos.correo).matches()
+        correoValido(datos.correo, soloGmail)
     contenido(datos, valido)
 }
+
+private fun correoValido(correo: String, soloGmail: Boolean = false): Boolean =
+    android.util.Patterns.EMAIL_ADDRESS.matcher(correo.trim()).matches() &&
+        (!soloGmail || correo.trim().substringAfterLast('@').equals("gmail.com", ignoreCase = true))

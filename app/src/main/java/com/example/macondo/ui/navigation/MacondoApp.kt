@@ -105,7 +105,7 @@ internal fun MacondoApp(
             )
         },
         bottomBar = {
-            if (actual != null && ((!Routes.protegida(actual) && actual != Routes.login && actual != Routes.registro) ||
+            if (actual != null && ((!Routes.protegida(actual) && actual !in setOf(Routes.login, Routes.registro, Routes.recuperarContrasena)) ||
                     actual in setOf(Routes.cliente, Routes.operador, Routes.admin))) {
                 Surface(color = MaterialTheme.colorScheme.surfaceVariant) {
                     Row(
@@ -137,13 +137,19 @@ internal fun MacondoApp(
                     { nav.navigate(Routes.explorar) })
             }
             composable(Routes.login, arguments = listOf(idArgument("tipoId", opcional = true))) {
-                LoginScreen(cuentas) { nav.navigate(Routes.registro) }
+                LoginScreen(cuentas, capacidades.verificacionCorreo,
+                    recuperar = if (capacidades.recuperarContrasena) ({ nav.navigate(Routes.recuperarContrasena) }) else null
+                ) { nav.navigate(Routes.registro) }
             }
             composable(Routes.registro) {
-                RegistroScreen(cuentas) {
-                    scope.launch { snackbar.showSnackbar("Cuenta creada. Ya puedes iniciar sesión.") }
+                RegistroScreen(cuentas, capacidades.verificacionCorreo) { mensaje ->
+                    scope.launch { snackbar.showSnackbar(mensaje) }
                     if (!nav.popBackStack()) nav.navigate(Routes.login())
                 }
+            }
+            composable(Routes.recuperarContrasena) {
+                if (capacidades.recuperarContrasena) RecuperarContrasenaScreen(cuentas)
+                else Page("Recuperar contraseña") { Text("La recuperación no está disponible en este servidor.") }
             }
             composable(Routes.habitaciones) {
                 HabitacionesScreen(catalogo) { nav.navigate(Routes.habitacion(it)) }
@@ -201,7 +207,7 @@ internal fun MacondoApp(
                 ClienteDest(destino, sesion, abrirPerfil) { PagosScreen(reservas, it) }
             }
             composable(Routes.perfil, arguments = listOf(idArgument("id"))) { destino ->
-                ClienteDest(destino, sesion, abrirPerfil) { PerfilScreen(cuentas, it) }
+                ClienteDest(destino, sesion, abrirPerfil) { PerfilScreen(cuentas, it, capacidades.verificacionCorreo) }
             }
             composable(Routes.nuevaReserva, arguments = listOf(idArgument("id"), idArgument("tipoId", opcional = true))) { destino ->
                 ClienteDest(destino, sesion, abrirPerfil) { id ->

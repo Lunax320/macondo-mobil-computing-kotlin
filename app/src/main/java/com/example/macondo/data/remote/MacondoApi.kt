@@ -37,6 +37,12 @@ interface AccountApi {
     @POST("auth/login")
     suspend fun login(@Body solicitud: LoginSolicitud): Sesion
 
+    @POST("auth/verificacion/reenviar")
+    suspend fun reenviarVerificacion(@Body solicitud: CorreoSolicitud)
+
+    @POST("auth/contrasena/solicitar-recuperacion")
+    suspend fun solicitarRecuperacion(@Body solicitud: CorreoSolicitud): MensajeCuenta
+
     @POST("cliente/registro")
     suspend fun registro(@Body solicitud: RegistroSolicitud): Cliente
 

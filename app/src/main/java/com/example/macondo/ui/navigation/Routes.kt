@@ -7,6 +7,7 @@ internal object Routes {
     const val inicio = "inicio"
     const val login = "login?tipoId={tipoId}"
     const val registro = "registro"
+    const val recuperarContrasena = "recuperar-contrasena"
     const val habitaciones = "habitaciones"
     const val habitacion = "habitaciones/{id}"
     const val servicios = "servicios"

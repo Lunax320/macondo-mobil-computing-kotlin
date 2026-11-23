@@ -35,12 +35,14 @@ data class Testimonio(
 
 data class Cliente(
     val id: Long? = null, val nombre: String, val apellido: String,
-    val cedula: String, val telefono: String, val correo: String
+    val cedula: String, val telefono: String, val correo: String, val mensaje: String? = null
 ) {
     val nombreCompleto get() = "$nombre $apellido".trim()
 }
 
 data class LoginSolicitud(val correo: String, val contrasena: String)
+data class CorreoSolicitud(val correo: String)
+data class MensajeCuenta(val mensaje: String)
 data class RegistroSolicitud(val cliente: Cliente, val contrasena: String)
 data class ClaveSolicitud(
     val contrasenaActual: String, val nuevaContrasena: String, val confirmarContrasena: String
