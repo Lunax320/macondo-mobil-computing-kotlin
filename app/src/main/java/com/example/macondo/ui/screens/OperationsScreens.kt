@@ -1,9 +1,11 @@
 package com.example.macondo.ui.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import com.example.macondo.data.*
 import com.example.macondo.data.repository.OperationsRepository
@@ -33,13 +35,27 @@ fun OperadorReservasScreen(operaciones: OperationsRepository, abrir: (String) ->
             (filtro == "TODAS" || reserva.estado == filtro) && texto.any { it.orEmpty().contains(consulta.trim(), true) }
         }
         if (visibles.isEmpty()) Text("No hay reservas para este filtro.")
-        visibles.forEach { reserva ->
-            ReservaCard(reserva) {
-                reserva.cliente?.let { Text(it.nombreCompleto) }
-                TextButton(onClick = { abrir(reserva.numeroReserva) }) { Text("Ver reserva") }
-            }
+        visibles.forEachIndexed { indice, reserva ->
+            if (indice > 0) HorizontalDivider()
+            ReservaOperativaFila(reserva) { abrir(reserva.numeroReserva) }
         }
     }
+}
+
+@Composable
+private fun ReservaOperativaFila(reserva: Reserva, abrir: () -> Unit) {
+    val habitacion = reserva.habitacion?.numero?.let { "Habitación $it" }
+    val huesped = reserva.cliente?.nombreCompleto?.takeIf(String::isNotBlank)
+    val contexto = listOfNotNull(habitacion, huesped).joinToString(" · ")
+    ListItem(
+        modifier = Modifier.clickable(onClickLabel = "Ver reserva", onClick = abrir),
+        headlineContent = { Text(reserva.numeroReserva) },
+        supportingContent = {
+            if (contexto.isNotEmpty()) Text(contexto)
+            Text("${fechaVisible(reserva.fechaInicio)} – ${fechaVisible(reserva.fechaFin)}")
+        },
+        trailingContent = { Text(reserva.estado.lowercase().replaceFirstChar(Char::uppercase)) }
+    )
 }
 
 @Composable

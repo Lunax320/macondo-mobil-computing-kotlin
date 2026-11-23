@@ -1,5 +1,6 @@
 package com.example.macondo.ui.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -54,8 +55,7 @@ fun ReservasActivasScreen(
         Primary("Nueva reserva", onClick = nueva)
         if (activas.isEmpty()) Text("Todavía no tienes reservas activas.")
         activas.forEach { reserva ->
-            ReservaCard(reserva) {
-                TextButton(onClick = { abrirDetalle(reserva.id) }) { Text("Ver detalle") }
+            ReservaCard(reserva, abrirDetalle = { abrirDetalle(reserva.id) }) {
                 if (reserva.fechaInicio > LocalDate.now().toString() &&
                     reserva.estado in setOf("CONFIRMADA", "ACTIVA")) {
                     Secondary("Editar reserva", !estado.guardando && !estado.cargando) { editar(reserva.id) }
@@ -76,8 +76,13 @@ fun ReservasActivasScreen(
 }
 
 @Composable
-fun ReservaCard(reserva: Reserva, acciones: @Composable ColumnScope.() -> Unit = {}) {
-    Panel {
+fun ReservaCard(
+    reserva: Reserva, abrirDetalle: (() -> Unit)? = null,
+    acciones: @Composable ColumnScope.() -> Unit = {}
+) {
+    val modifier = if (abrirDetalle == null) Modifier
+        else Modifier.clickable(onClickLabel = "Ver detalle de la reserva", onClick = abrirDetalle)
+    Panel(modifier) {
         Section(reserva.numeroReserva)
         Text("${reserva.fechaInicio} al ${reserva.fechaFin} · ${reserva.cantidadPersonas} huéspedes")
         Text(reserva.estado)
@@ -147,13 +152,14 @@ fun ReservaFormScreen(
         }
         var entrada by rememberSaveable(reserva?.id) { mutableStateOf(reserva?.fechaInicio.orEmpty()) }
         var salida by rememberSaveable(reserva?.id) { mutableStateOf(reserva?.fechaFin.orEmpty()) }
-        var personas by rememberSaveable(reserva?.id) { mutableStateOf(reserva?.cantidadPersonas?.toString() ?: "1") }
+        var personas by rememberSaveable(reserva?.id) { mutableIntStateOf(reserva?.cantidadPersonas ?: 1) }
+        val capacidadMaxima = (datos.tipos.maxOfOrNull { it.capacidadPersonas } ?: 1).coerceAtLeast(1)
         val tipo = datos.tipos.firstOrNull { it.id == tipoId }
-        val cantidad = personas.toIntOrNull()
+        val cantidad = personas.coerceIn(1, capacidadMaxima)
         val fechaInicio = runCatching { LocalDate.parse(entrada) }.getOrNull()
         val fechaFin = runCatching { LocalDate.parse(salida) }.getOrNull()
         val consulta = tipoId?.let { seleccionado ->
-            if (fechaInicio == null || fechaFin == null || cantidad == null || tipo == null ||
+            if (fechaInicio == null || fechaFin == null || tipo == null ||
                 fechaInicio.isBefore(LocalDate.now()) || !fechaFin.isAfter(fechaInicio) ||
                 cantidad !in 1..tipo.capacidadPersonas) null
             else DisponibilidadConsulta(seleccionado, ReservaSolicitud(entrada, salida, cantidad))
@@ -164,21 +170,18 @@ fun ReservaFormScreen(
         } else null
         val promoVigente = resultadoPromo.takeIf { criteriosPromo != null && solicitudPromo == criteriosPromo }
         val codigoListo = reservaId != null || promociones == null || codigo.isBlank() || promoVigente?.codigo != null
-        FormSection("Elige tu habitación", "Compara capacidad y tarifa antes de consultar fechas.") {
-            if (datos.tipos.isEmpty()) Text("No hay opciones de habitación disponibles por el momento.")
-            datos.tipos.forEach { opcion ->
-                TipoHabitacionOption(opcion, selected = opcion.id == tipoId) {
-                    tipoId = opcion.id
-                    if (personas.toIntOrNull()?.let { it > opcion.capacidadPersonas } == true) {
-                        personas = opcion.capacidadPersonas.toString()
-                    }
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Section("Fechas de estadía")
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                DateField("Entrada", entrada, Modifier.weight(1f)) {
+                    entrada = it
+                    disponibilidadModel.invalidar()
+                }
+                DateField("Salida", salida, Modifier.weight(1f)) {
+                    salida = it
                     disponibilidadModel.invalidar()
                 }
             }
-        }
-        FormSection("Fechas de estadía", "Selecciona primero la entrada y luego la salida.") {
-            DateField("Entrada", entrada) { entrada = it; disponibilidadModel.invalidar() }
-            DateField("Salida", salida) { salida = it; disponibilidadModel.invalidar() }
             if (fechaInicio != null && fechaFin != null && fechaFin.isAfter(fechaInicio)) {
                 val noches = java.time.temporal.ChronoUnit.DAYS.between(fechaInicio, fechaFin)
                 Text("$noches ${if (noches == 1L) "noche" else "noches"}", style = MaterialTheme.typography.titleMedium)
@@ -190,21 +193,25 @@ fun ReservaFormScreen(
                 Text("La salida debe ser posterior a la entrada.", color = MaterialTheme.colorScheme.error)
             }
         }
-        tipo?.let { tipoSeleccionado ->
-            FormSection("Huéspedes", "Esta opción admite hasta ${tipoSeleccionado.capacidadPersonas} huéspedes.") {
-                if (tipoSeleccionado.capacidadPersonas > 1) {
-                    SliderField(
-                        "Personas",
-                        cantidad ?: 1,
-                        range = 1..tipoSeleccionado.capacidadPersonas,
-                        unit = if (cantidad == 1) "huésped" else "huéspedes"
-                    ) {
-                        personas = it.toString()
-                        disponibilidadModel.invalidar()
-                    }
-                } else {
-                    Text("Esta habitación admite 1 huésped.")
-                }
+        if (capacidadMaxima > 1) {
+            SliderField("Huéspedes", cantidad, 1..capacidadMaxima, "personas") {
+                personas = it
+                if (tipo != null && it > tipo.capacidadPersonas) tipoId = null
+                disponibilidadModel.invalidar()
+            }
+        } else if (datos.tipos.isNotEmpty()) {
+            Text("1 huésped")
+        }
+        val tiposDisponibles = datos.tipos.filter { it.id != null && it.capacidadPersonas >= cantidad }
+        if (tiposDisponibles.isEmpty()) {
+            Text("No hay opciones de habitación para esta cantidad de huéspedes.")
+        } else {
+            Selector("Tipo de habitación", tipo, tiposDisponibles, { it.nombre }) {
+                tipoId = it.id
+                disponibilidadModel.invalidar()
+            }
+            tipo?.let {
+                Text("Hasta ${it.capacidadPersonas} huéspedes · ${moneda(it.precioNoche)} por noche")
             }
         }
 
@@ -224,7 +231,8 @@ fun ReservaFormScreen(
                 }
             }
         }
-        if (consulta != null && resultado?.unidades?.isNotEmpty() == true && tipo != null) {
+        if (consulta != null && resultado?.unidades?.isNotEmpty() == true &&
+            tipo != null && fechaInicio != null && fechaFin != null) {
             val noches = java.time.temporal.ChronoUnit.DAYS.between(fechaInicio, fechaFin)
             val subtotal = tipo.precioNoche.multiply(noches.toBigDecimal())
             FormSection("Resumen de la estadía") {
@@ -308,8 +316,7 @@ fun HistorialScreen(
         if (visibles.isEmpty()) Text("No hay reservas en el historial para este filtro.")
         visibles.forEach { reserva ->
             val comentario = datos.comentarios?.get(reserva.id)
-            ReservaCard(reserva) {
-                TextButton(onClick = { abrirDetalle(reserva.id) }) { Text("Ver detalle") }
+            ReservaCard(reserva, abrirDetalle = { abrirDetalle(reserva.id) }) {
                 if (datos.comentarios != null && reserva.estado == "FINALIZADA") {
                     comentario?.let {
                         Text(it.texto)

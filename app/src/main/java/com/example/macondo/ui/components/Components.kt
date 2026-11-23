@@ -81,8 +81,8 @@ fun <T> RemotePage(
 }
 
 @Composable
-fun Panel(contenido: @Composable ColumnScope.() -> Unit) {
-    OutlinedCard(Modifier.fillMaxWidth()) {
+fun Panel(modifier: Modifier = Modifier, contenido: @Composable ColumnScope.() -> Unit) {
+    OutlinedCard(modifier.fillMaxWidth()) {
         Column(
             Modifier.fillMaxWidth().padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -327,9 +327,12 @@ fun <T> Selector(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DateField(label: String, fecha: String, actualizar: (String) -> Unit) {
+fun DateField(label: String, fecha: String, modifier: Modifier = Modifier, actualizar: (String) -> Unit) {
     var abierto by rememberSaveable { mutableStateOf(false) }
-    Secondary(if (fecha.isBlank()) label else "$label · $fecha") { abierto = true }
+    Column(modifier) {
+        Text(label, style = MaterialTheme.typography.labelLarge)
+        Secondary(if (fecha.isBlank()) "Elegir fecha" else fechaVisible(fecha)) { abierto = true }
+    }
     if (abierto) {
         val millis = runCatching { LocalDate.parse(fecha).atStartOfDay().toInstant(ZoneOffset.UTC).toEpochMilli() }
             .getOrNull()
