@@ -16,5 +16,17 @@ interface PromocionesApi {
         @Query("fechaSalida") fechaSalida: String,
         @Query("precioNoche") precioNoche: BigDecimal
     ): PromocionAplicada
+
+    @GET("promociones")
+    suspend fun todas(): List<Promocion>
+
+    @POST("promociones")
+    suspend fun crear(@Body promocion: Promocion): Promocion
+
+    @PUT("promociones/{id}")
+    suspend fun actualizar(@Path("id") id: Long, @Body promocion: Promocion): Promocion
+
+    @DELETE("promociones/{id}")
+    suspend fun eliminar(@Path("id") id: Long)
 }
 

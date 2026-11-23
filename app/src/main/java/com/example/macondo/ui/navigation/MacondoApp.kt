@@ -173,7 +173,7 @@ internal fun MacondoApp(
             }
             composable(Routes.explorar) { ExplorarScreen() }
 
-            staffRoutes(nav, { sesion }, operaciones, admin, catalogo)
+            staffRoutes(nav, { sesion }, operaciones, admin, catalogo, promociones) { capacidades.administrarPromociones }
 
             composable(Routes.cliente, arguments = listOf(idArgument("id"))) { destino ->
                 ClienteDest(destino, sesion, abrirPerfil) { id ->

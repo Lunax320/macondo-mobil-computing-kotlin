@@ -40,12 +40,15 @@ internal object Routes {
     const val adminNuevoServicio = "admin/servicios/nuevo"
     const val adminEditarServicio = "admin/servicios/editar/{id}"
     const val adminOperadores = "admin/operadores"
+    const val adminPromociones = "admin/promociones"
+    const val adminPromocionForm = "admin/promociones/form?id={id}"
 
     fun operadorDetalle(numero: String) = "operador/reservas/${Uri.encode(numero)}"
     fun cuenta(id: Long) = "operador/cuenta/$id"
     fun checkout(id: Long? = null) = id?.let { "operador/checkout?reservaId=$it" } ?: "operador/checkout"
     fun adminEditarHabitacion(id: Long) = "admin/habitaciones/editar/$id"
     fun adminEditarServicio(id: Long) = "admin/servicios/editar/$id"
+    fun adminPromocionForm(id: Long?) = "admin/promociones/form" + (id?.let { "?id=$it" } ?: "")
 
     fun portal(sesion: Sesion?): String {
         if (sesion == null) return login()

@@ -1,6 +1,7 @@
 package com.example.macondo.ui.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.material3.Text
 import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavType
@@ -10,6 +11,7 @@ import com.example.macondo.data.Sesion
 import com.example.macondo.data.repository.AdminRepository
 import com.example.macondo.data.repository.CatalogRepository
 import com.example.macondo.data.repository.OperationsRepository
+import com.example.macondo.data.repository.PromocionesRepository
 import com.example.macondo.ui.components.Page
 import com.example.macondo.ui.components.Primary
 import com.example.macondo.ui.screens.*
@@ -19,7 +21,9 @@ internal fun NavGraphBuilder.staffRoutes(
     sesion: () -> Sesion?,
     operaciones: OperationsRepository,
     admin: AdminRepository,
-    catalogo: CatalogRepository
+    catalogo: CatalogRepository,
+    promociones: PromocionesRepository,
+    promocionesDisponibles: () -> Boolean
 ) {
     composable(Routes.operador) {
         StaffDest(sesion(), nav) {
@@ -66,7 +70,24 @@ internal fun NavGraphBuilder.staffRoutes(
         StaffDest(sesion(), nav, administrador = true) {
             AdminScreen(admin, { nav.navigate(Routes.adminHabitaciones) }, { nav.navigate(Routes.adminTipos) },
                 { nav.navigate(Routes.adminServicios) }, { nav.navigate(Routes.adminOperadores) },
-                { nav.navigate(Routes.operador) })
+                { nav.navigate(Routes.operador) },
+                if (promocionesDisponibles()) ({ nav.navigate(Routes.adminPromociones) }) else null)
+        }
+    }
+    composable(Routes.adminPromociones) {
+        StaffDest(sesion(), nav, administrador = true) {
+            if (promocionesDisponibles()) {
+                AdminPromocionesScreen(promociones) { nav.navigate(Routes.adminPromocionForm(it)) }
+            } else Page("Promociones") { Text("La administración de promociones no está disponible.") }
+        }
+    }
+    composable(Routes.adminPromocionForm, arguments = listOf(idArgument("id", opcional = true))) { entrada ->
+        StaffDest(sesion(), nav, administrador = true) {
+            if (promocionesDisponibles()) {
+                AdminPromocionFormScreen(promociones, entrada.id().takeIf { it > 0 }) {
+                    nav.reiniciarListado(Routes.adminPromociones)
+                }
+            } else Page("Promociones") { Text("La administración de promociones no está disponible.") }
         }
     }
     composable(Routes.adminHabitaciones) {

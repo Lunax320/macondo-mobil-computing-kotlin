@@ -23,7 +23,8 @@ fun AdminScreen(
     tipos: () -> Unit,
     servicios: () -> Unit,
     operadores: () -> Unit,
-    operacion: () -> Unit
+    operacion: () -> Unit,
+    promociones: (() -> Unit)? = null
 ) {
     val model = screenModel("admin-inicio") { Unit }
     var comentarioId by rememberSaveable { mutableStateOf("") }
@@ -32,6 +33,7 @@ fun AdminScreen(
         Secondary("Tipos de habitación", onClick = tipos)
         Secondary("Servicios", onClick = servicios)
         Secondary("Operadores", onClick = operadores)
+        promociones?.let { Secondary("Promociones", onClick = it) }
         Secondary("Abrir panel de operación", onClick = operacion)
         HorizontalDivider()
         Section("Moderación de comentarios")
