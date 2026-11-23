@@ -33,7 +33,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun PortalClienteScreen(
     cliente: Cliente, abrirReservas: () -> Unit, nueva: () -> Unit,
-    historial: () -> Unit, pagos: () -> Unit, perfil: () -> Unit
+    historial: () -> Unit, pagos: () -> Unit, perfil: () -> Unit, salir: () -> Unit
 ) {
     Page("Hola, ${cliente.nombre}") {
         Primary("Nueva reserva", onClick = nueva)
@@ -41,6 +41,7 @@ fun PortalClienteScreen(
         Secondary("Historial de estadías", onClick = historial)
         Secondary("Historial de pagos", onClick = pagos)
         Secondary("Mi perfil", onClick = perfil)
+        TextButton(onClick = salir) { Text("Cerrar sesión") }
     }
 }
 

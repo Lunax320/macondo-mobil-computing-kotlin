@@ -13,11 +13,12 @@ import com.example.macondo.ui.components.*
 import com.example.macondo.ui.screenModel
 
 @Composable
-fun OperadorScreen(reservas: () -> Unit, cuenta: () -> Unit, checkout: () -> Unit) {
+fun OperadorScreen(reservas: () -> Unit, cuenta: () -> Unit, checkout: () -> Unit, salir: () -> Unit) {
     Page("Operación del hotel") {
         Primary("Gestionar reservas", onClick = reservas)
         Secondary("Buscar cuenta por habitación", onClick = cuenta)
         Secondary("Hacer checkout", onClick = checkout)
+        TextButton(onClick = salir) { Text("Cerrar sesión") }
     }
 }
 

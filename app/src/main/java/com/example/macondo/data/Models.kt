@@ -73,8 +73,8 @@ data class Pago(
     val metodoPago: String, val fechaPago: String, val estado: String
 )
 data class PagoSolicitud(val metodoPago: String)
-data class Operador(val id: Long, val nombre: String, val activo: Boolean)
-data class OperadorSolicitud(val nombre: String)
+data class Operador(val id: Long, val nombre: String, val activo: Boolean, val correo: String? = null)
+data class OperadorCuentaSolicitud(val correo: String, val nombre: String, val contrasena: String)
 
 data class Comentario(
     val id: Long, val reservaId: Long?, val nombre: String?, val calificacion: Int,

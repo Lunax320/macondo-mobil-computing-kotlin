@@ -1,10 +1,13 @@
 package com.example.macondo.ui.screens
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.example.macondo.ui.components.*
 import com.example.macondo.ui.panorama.PanoramaView
@@ -33,36 +36,34 @@ fun ExplorarScreen() {
     val escena = escenas.getValue(actual)
     val camino = destino?.let { recorrido(actual, it) }.orEmpty()
 
-    Page("Explorar el hotel") {
-        Section(escena.nombre)
-        key(actual) {
-            AndroidView(
-                factory = { context -> PanoramaView(context, "images/${escena.archivo}.jpg").apply {
-                    contentDescription = "Vista panorámica de ${escena.nombre}"
-                } },
-                modifier = Modifier.fillMaxWidth().aspectRatio(1.45f),
-                update = {},
-                onRelease = { it.onPause() }
-            )
-        }
-        Text("Desliza sobre la imagen para mirar alrededor.")
-        Selector("Destino", destino, escenas.keys.toList(), { escenas.getValue(it).nombre }) { destino = it }
-        val siguiente = camino.getOrNull(1)
-        if (siguiente != null) {
-            Panel {
-                Text("Siguiente parada", style = MaterialTheme.typography.labelLarge)
-                Text(escenas.getValue(siguiente).nombre, style = MaterialTheme.typography.titleLarge)
-                val restantes = camino.size - 1
-                Text(if (restantes == 1) "El destino está en la siguiente parada."
-                    else "Quedan $restantes paradas para llegar a ${escenas.getValue(camino.last()).nombre}.")
-                Primary("Continuar recorrido") { actual = siguiente }
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val alturaControles = maxHeight * 0.42f
+        Column(Modifier.fillMaxSize()) {
+            key(actual) {
+                AndroidView(
+                    factory = { context -> PanoramaView(context, "images/${escena.archivo}.jpg").apply {
+                        contentDescription = "Vista panorámica de ${escena.nombre}"
+                    } },
+                    modifier = Modifier.fillMaxWidth().weight(1f),
+                    update = {},
+                    onRelease = { it.onPause() }
+                )
             }
-        } else if (destino == actual) {
-            Panel { Text("Llegaste a ${escena.nombre}.") }
-        }
-        Section("Lugares conectados")
-        escena.vecinos.forEach { vecino ->
-            Secondary(escenas.getValue(vecino).nombre) { actual = vecino }
+            Surface(color = MaterialTheme.colorScheme.surfaceContainer) {
+                Column(
+                    Modifier.fillMaxWidth().heightIn(max = alturaControles)
+                        .verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp)
+                ) {
+                    Text(escena.nombre, style = MaterialTheme.typography.titleMedium)
+                    Selector("Destino", destino, escenas.keys.toList(), { escenas.getValue(it).nombre }) { destino = it }
+                    val siguiente = camino.getOrNull(1)
+                    if (siguiente != null) {
+                        Primary("Ir a ${escenas.getValue(siguiente).nombre}") { actual = siguiente }
+                    } else if (destino == actual) {
+                        Text("Llegaste a ${escena.nombre}.", style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+            }
         }
     }
 }

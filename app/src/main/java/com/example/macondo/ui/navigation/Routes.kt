@@ -44,6 +44,7 @@ internal object Routes {
     const val adminNuevoServicio = "admin/servicios/nuevo"
     const val adminEditarServicio = "admin/servicios/editar/{id}"
     const val adminOperadores = "admin/operadores"
+    const val adminNuevoOperador = "admin/operadores/nuevo"
     const val adminPromociones = "admin/promociones"
     const val adminPromocionForm = "admin/promociones/form?id={id}"
 

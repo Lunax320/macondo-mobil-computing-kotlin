@@ -11,7 +11,8 @@ data class CapacidadesApi(
     val recuperarContrasena: Boolean = false,
     val promocionesPublicas: Boolean = false,
     val calcularPromocion: Boolean = false,
-    val administrarPromociones: Boolean = false
+    val administrarPromociones: Boolean = false,
+    val altaOperadoresPorCorreo: Boolean = false
 )
 
 class DescubrimientoApi @Inject constructor(private val api: CatalogApi) {
@@ -27,7 +28,8 @@ class DescubrimientoApi @Inject constructor(private val api: CatalogApi) {
             promocionesPublicas = expone("get", "promociones/publicas"),
             calcularPromocion = expone("get", "promociones/calcular"),
             administrarPromociones = expone("get", "promociones") && expone("post", "promociones") &&
-                expone("put", "promociones/{id}") && expone("delete", "promociones/{id}")
+                expone("put", "promociones/{id}") && expone("delete", "promociones/{id}"),
+            altaOperadoresPorCorreo = expone("post", "operador/cuentas")
         )
     } catch (error: CancellationException) {
         throw error

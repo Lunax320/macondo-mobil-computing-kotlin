@@ -11,40 +11,16 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.example.macondo.R
-import com.example.macondo.data.Sesion
 import com.example.macondo.ui.components.Page
 import com.example.macondo.ui.components.Panel
-import com.example.macondo.ui.components.Section
 import com.example.macondo.ui.theme.Apariencia
 
 @Composable
 internal fun ConfiguracionScreen(
-    sesion: Sesion?,
     apariencia: Apariencia,
-    cambiarApariencia: (Apariencia) -> Unit,
-    abrirCuenta: () -> Unit,
-    registrar: () -> Unit,
-    cerrarSesion: () -> Unit
+    cambiarApariencia: (Apariencia) -> Unit
 ) {
     Page("") {
-        Section("Cuenta")
-        Panel {
-            Text(
-                sesion?.cliente?.nombreCompleto ?: sesion?.correo ?: "Invitado",
-                style = MaterialTheme.typography.titleMedium
-            )
-            if (sesion == null) {
-                Button(onClick = abrirCuenta) { Text("Iniciar sesión") }
-                TextButton(onClick = registrar) { Text("Crear cuenta") }
-            } else {
-                Button(onClick = abrirCuenta) {
-                    Text(if (sesion.tiene("ADMINISTRADOR", "OPERADOR")) "Abrir panel" else "Mi cuenta")
-                }
-                TextButton(onClick = cerrarSesion) { Text("Cerrar sesión") }
-            }
-        }
-
-        Section("Apariencia")
         Panel {
             Row(
                 verticalAlignment = Alignment.CenterVertically,

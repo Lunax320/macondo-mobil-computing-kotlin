@@ -320,7 +320,7 @@ fun <T> Selector(
             OutlinedButton(onClick = { abierto = true }, enabled = items.isNotEmpty(), modifier = Modifier.fillMaxWidth()) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text(actual?.let(texto) ?: "Seleccionar", Modifier.weight(1f))
-                    Text("▾")
+                    Icon(painterResource(R.drawable.ic_dropdown), contentDescription = null)
                 }
             }
             DropdownMenu(expanded = abierto, onDismissRequest = { abierto = false }) {

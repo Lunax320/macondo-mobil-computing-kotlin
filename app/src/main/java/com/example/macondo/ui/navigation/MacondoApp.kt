@@ -78,11 +78,17 @@ internal fun MacondoApp(
     val actual = entrada?.destination?.route
     val puedeVolver = nav.previousBackStackEntry != null
     val pestanaActual = Pestana.paraRuta(actual)
-    val mostrarBarraInferior = pestanaActual != null ||
-        actual in setOf(Routes.cliente, Routes.operador, Routes.admin)
     val tecladoVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
     val abrirPerfil = {
         nav.navigate(Routes.portal(sesion)) { launchSingleTop = true }
+    }
+    val cerrarSesion: () -> Unit = {
+        scope.launch {
+            cuentas.salir()
+            chatModel.limpiar()
+            nav.reiniciar(Routes.inicio)
+            snackbar.showSnackbar("Sesión cerrada.")
+        }
     }
     LaunchedEffect(sesion?.id) { chatModel.cambiarUsuario(sesion?.id) }
 
@@ -112,7 +118,9 @@ internal fun MacondoApp(
             TopAppBar(
                 title = {
                     if (actual == Routes.configuracion) {
-                        Text("Configuración", style = MaterialTheme.typography.titleLarge)
+                        Text("Apariencia", style = MaterialTheme.typography.titleLarge)
+                    } else if (actual == Routes.explorar) {
+                        Text("Recorrido 3D", style = MaterialTheme.typography.titleLarge)
                     } else {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             HotelImage("/images/logo.png", null, Modifier.size(26.dp))
@@ -121,7 +129,7 @@ internal fun MacondoApp(
                     }
                 },
                 navigationIcon = {
-                    if (actual == Routes.configuracion) {
+                    if (actual == Routes.configuracion || actual == Routes.explorar) {
                         IconButton(onClick = {
                             if (!nav.popBackStack()) nav.reiniciar(Routes.inicio)
                         }) {
@@ -134,15 +142,21 @@ internal fun MacondoApp(
                         IconButton(onClick = {
                             nav.navigate(Routes.configuracion) { launchSingleTop = true }
                         }) {
-                            Icon(painterResource(R.drawable.ic_settings), "Abrir configuración")
+                            Icon(painterResource(R.drawable.ic_settings), "Configurar apariencia")
                         }
                     }
                 }
             )
         },
         bottomBar = {
-            if (mostrarBarraInferior && !(actual == Routes.chat && tecladoVisible)) {
-                MacondoNavigationBar(pestanaActual, nav::abrirPrincipal)
+            if (pestanaActual != null && !tecladoVisible) {
+                MacondoNavigationBar(pestanaActual, if (sesion == null) "Iniciar sesión" else "Mi cuenta") { tab ->
+                    if (tab == Pestana.CUENTA) {
+                        if (actual != Routes.login || sesion != null) nav.abrirPrincipal(Routes.portal(sesion))
+                    } else {
+                        nav.abrirPrincipal(tab.ruta)
+                    }
+                }
             }
         }
     ) { padding ->
@@ -210,28 +224,22 @@ internal fun MacondoApp(
                 }
             }
             composable(Routes.configuracion) {
-                ConfiguracionScreen(
-                    sesion, temaActual, cambiarApariencia, abrirPerfil,
-                    registrar = { nav.navigate(Routes.registro) { launchSingleTop = true } },
-                    cerrarSesion = {
-                        scope.launch {
-                            cuentas.salir()
-                            chatModel.limpiar()
-                            nav.reiniciar(Routes.inicio)
-                            snackbar.showSnackbar("Sesión cerrada.")
-                        }
-                    }
-                )
+                ConfiguracionScreen(temaActual, cambiarApariencia)
             }
 
-            staffRoutes(nav, { sesion }, operaciones, admin, catalogo, promociones) { capacidades.administrarPromociones }
+            staffRoutes(
+                nav, { sesion }, operaciones, admin, catalogo, promociones,
+                promocionesDisponibles = { capacidades.administrarPromociones },
+                altaOperadoresDisponible = { capacidades.altaOperadoresPorCorreo },
+                cerrarSesion = cerrarSesion
+            )
 
             composable(Routes.cliente, arguments = listOf(idArgument("id"))) { destino ->
                 ClienteDest(destino, sesion, abrirPerfil) { id ->
                     val cliente = requireNotNull(sesion?.cliente)
                     PortalClienteScreen(cliente, { nav.navigate(Routes.activas(id)) },
                         { nav.navigate(Routes.nuevaReserva(id)) }, { nav.navigate(Routes.historial(id)) },
-                        { nav.navigate(Routes.pagos(id)) }, { nav.navigate(Routes.perfil(id)) })
+                        { nav.navigate(Routes.pagos(id)) }, { nav.navigate(Routes.perfil(id)) }, cerrarSesion)
                 }
             }
             composable(Routes.activas, arguments = listOf(idArgument("id"))) { destino ->
