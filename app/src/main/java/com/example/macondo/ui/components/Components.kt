@@ -299,14 +299,18 @@ fun <T> Selector(
     actual: T?,
     items: List<T>,
     texto: (T) -> String,
+    modifier: Modifier = Modifier,
     seleccionar: (T) -> Unit
 ) {
     var abierto by remember { mutableStateOf(false) }
-    Column {
+    Column(modifier) {
         Text(label, style = MaterialTheme.typography.labelLarge)
         Box {
             OutlinedButton(onClick = { abierto = true }, enabled = items.isNotEmpty(), modifier = Modifier.fillMaxWidth()) {
-                Text(actual?.let(texto) ?: "Seleccionar")
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text(actual?.let(texto) ?: "Seleccionar", Modifier.weight(1f))
+                    Text("▾")
+                }
             }
             DropdownMenu(expanded = abierto, onDismissRequest = { abierto = false }) {
                 items.forEach { item ->

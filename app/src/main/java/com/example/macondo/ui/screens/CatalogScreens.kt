@@ -6,6 +6,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -77,43 +78,64 @@ fun InicioScreen(
 fun HabitacionesScreen(catalogo: CatalogRepository, abrirTipo: (Long) -> Unit) {
     val model = screenModel("habitaciones", catalogo::tipos)
     var personas by rememberSaveable { mutableIntStateOf(1) }
-    var habitacionElegida by rememberSaveable { mutableStateOf("Todas las opciones") }
+    var tipoId by rememberSaveable { mutableStateOf<Long?>(null) }
     var estimarNoches by rememberSaveable { mutableStateOf(false) }
     var noches by rememberSaveable { mutableIntStateOf(1) }
     RemotePage("Habitaciones", model) { tipos, _ ->
-        val capacidadMaxima = tipos.maxOfOrNull { it.capacidadPersonas } ?: 1
-        val opcionesHabitacion = listOf("Todas las opciones") + tipos.map { it.nombre }.distinct()
-        val habitacionActual = habitacionElegida.takeIf(opcionesHabitacion::contains) ?: opcionesHabitacion.first()
-        FormSection("Encuentra tu habitación", "Compara opciones por capacidad y tarifa.") {
-            Selector("Habitación", habitacionActual, opcionesHabitacion, { it }) { habitacionElegida = it }
-            if (capacidadMaxima > 1) {
-                SliderField("Huéspedes", personas, range = 1..capacidadMaxima, unit = "personas") { personas = it }
+        val maximo = (tipos.maxOfOrNull { it.capacidadPersonas } ?: 1).coerceAtLeast(1)
+        val huespedes = personas.coerceIn(1, maximo)
+        val tipoActivo = tipoId?.takeIf { id -> tipos.any { it.id == id } }
+        val visibles = tipos.filter { it.capacidadPersonas >= huespedes && (tipoActivo == null || it.id == tipoActivo) }
+        if (tipos.isNotEmpty()) {
+            FiltrosHabitaciones(tipos, tipoActivo, huespedes, maximo, { tipoId = it }, { personas = it })
+            if (estimarNoches) {
+                StepperField("Noches", noches) { noches = it }
+                TextButton(onClick = { estimarNoches = false }) { Text("Ocultar estimación") }
             } else {
-                Text("Huéspedes · 1")
+                TextButton(onClick = { estimarNoches = true }) { Text("Estimar por noches") }
             }
-            SwitchField("Estimar el total", estimarNoches, { estimarNoches = it }, "Calcula la tarifa según el número de noches.")
-            if (estimarNoches) StepperField("Noches", noches) { noches = it }
         }
-        val opciones = tipos.filter {
-            it.capacidadPersonas >= personas &&
-                (habitacionActual == "Todas las opciones" || it.nombre == habitacionActual)
+        when {
+            tipos.isEmpty() -> Text("Aún no hay habitaciones en el catálogo.")
+            visibles.isEmpty() -> {
+                Text("Ninguna habitación coincide con los filtros.")
+                TextButton(onClick = { tipoId = null; personas = 1 }) { Text("Limpiar filtros") }
+            }
+            else -> visibles.forEach { TipoCard(it, abrirTipo, noches.takeIf { estimarNoches }) }
         }
-        if (opciones.isEmpty()) Text("No hay habitaciones que coincidan con la capacidad seleccionada.")
-        opciones.forEach { TipoCard(it, abrirTipo, noches.takeIf { estimarNoches }) }
     }
 }
 
 @Composable
-private fun TipoCard(tipo: TipoHabitacion, abrir: (Long) -> Unit, noches: Int? = null) {
-    Panel {
-        HotelImage(tipo.imagen, tipo.nombre, Modifier.fillMaxWidth().height(142.dp))
-        Section(tipo.nombre)
-        Text("${tipo.capacidadPersonas} huéspedes · ${moneda(tipo.precioNoche)} por noche")
-        if (noches != null) {
-            val total = tipo.precioNoche.multiply(noches.toBigDecimal())
-            Text("Estimado por $noches noches · ${moneda(total)}")
+private fun FiltrosHabitaciones(
+    tipos: List<TipoHabitacion>, tipoId: Long?, huespedes: Int, maximo: Int,
+    elegirTipo: (Long?) -> Unit, elegirHuespedes: (Int) -> Unit
+) {
+    val nombres = tipos.mapNotNull { tipo -> tipo.id?.let { it to tipo.nombre } }.toMap()
+    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Selector("Habitación", tipoId ?: 0L, listOf(0L) + nombres.keys,
+            { nombres[it] ?: "Todas" }, Modifier.weight(1f)) { elegirTipo(it.takeIf { id -> id != 0L }) }
+        if (maximo <= 12) {
+            Selector("Huéspedes", huespedes, (1..maximo).toList(), Int::toString, Modifier.weight(1f), elegirHuespedes)
         }
-        tipo.id?.let { id -> TextButton(onClick = { abrir(id) }) { Text("Ver habitación") } }
+    }
+    if (maximo > 12) StepperField("Huéspedes", huespedes, maximo = maximo, onChange = elegirHuespedes)
+}
+
+@Composable
+private fun TipoCard(tipo: TipoHabitacion, abrir: (Long) -> Unit, noches: Int? = null) {
+    val id = tipo.id
+    Card(onClick = { id?.let(abrir) }, enabled = id != null, modifier = Modifier.fillMaxWidth()) {
+        HotelImage(tipo.imagen, null, Modifier.fillMaxWidth().height(142.dp))
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Section(tipo.nombre)
+            Text("Hasta ${tipo.capacidadPersonas} huéspedes")
+            Text("${moneda(tipo.precioNoche)} por noche", style = MaterialTheme.typography.titleMedium)
+            if (noches != null) {
+                val total = tipo.precioNoche.multiply(noches.toBigDecimal())
+                Text("Estimado · ${moneda(total)} por $noches ${if (noches == 1) "noche" else "noches"}")
+            }
+        }
     }
 }
 
@@ -135,30 +157,43 @@ fun DetalleHabitacionScreen(catalogo: CatalogRepository, id: Long, reservar: (Lo
 @Composable
 fun ServiciosScreen(catalogo: CatalogRepository, abrir: (Long) -> Unit) {
     val model = screenModel("servicios", catalogo::servicios)
-    var categoriaElegida by rememberSaveable { mutableStateOf("Todos los servicios") }
+    var categoriaElegida by rememberSaveable { mutableStateOf<String?>(null) }
     RemotePage("Servicios", model) { servicios, _ ->
         val categorias = servicios.mapNotNull { it.categoria?.trim()?.takeIf(String::isNotEmpty) }.distinct().sorted()
-        val opcionesCategoria = listOf("Todos los servicios") + categorias
-        val categoriaActual = categoriaElegida.takeIf(opcionesCategoria::contains) ?: opcionesCategoria.first()
-        FormSection("Explora servicios", "Selecciona un tipo de experiencia para ver las opciones.") {
-            Selector("Tipo de experiencia", categoriaActual, opcionesCategoria, { it }) { categoriaElegida = it }
-        }
+        val categoriaActual = categoriaElegida?.takeIf(categorias::contains)
+        if (categorias.isNotEmpty()) FiltrosServicios(categoriaActual, categorias) { categoriaElegida = it }
         val visibles = servicios.filter {
-            categoriaActual == "Todos los servicios" || it.categoria?.trim() == categoriaActual
+            categoriaActual == null || it.categoria?.trim() == categoriaActual
         }
-        if (visibles.isEmpty()) Text("No hay servicios disponibles en esta selección.")
-        visibles.forEach { ServicioCard(it, abrir) }
+        if (visibles.isEmpty()) Text("Aún no hay servicios en el catálogo.")
+        visibles.forEachIndexed { index, servicio ->
+            if (index > 0) HorizontalDivider()
+            ServicioCard(servicio, abrir)
+        }
+    }
+}
+
+@Composable
+private fun FiltrosServicios(actual: String?, categorias: List<String>, seleccionar: (String?) -> Unit) {
+    Selector("Tipo de experiencia", actual.orEmpty(), listOf("") + categorias, { it.ifEmpty { "Todos" } }) {
+        seleccionar(it.ifEmpty { null })
     }
 }
 
 @Composable
 private fun ServicioCard(servicio: Servicio, abrir: (Long) -> Unit) {
-    Panel {
-        HotelImage(servicio.imagen, servicio.nombre, Modifier.fillMaxWidth().height(136.dp))
-        Section(servicio.nombre)
-        servicio.categoria?.let { Text(it) }
-        servicio.descripcion?.let { Text(it) }
-        servicio.id?.let { id -> TextButton(onClick = { abrir(id) }) { Text("Ver servicio") } }
+    val id = servicio.id
+    Surface(onClick = { id?.let(abrir) }, enabled = id != null, modifier = Modifier.fillMaxWidth()) {
+        Row(Modifier.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            HotelImage(servicio.imagen, null, Modifier.size(88.dp))
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(servicio.nombre, style = MaterialTheme.typography.titleMedium)
+                servicio.categoria?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+                servicio.duracion?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
+                Text(moneda(servicio.precio), style = MaterialTheme.typography.labelLarge)
+            }
+        }
     }
 }
 
