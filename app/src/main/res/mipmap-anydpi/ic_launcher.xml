@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <size android:width="72dp" android:height="72dp" />
+            <solid android:color="@color/macondo_azul_profundo" />
+            <corners android:radius="14dp" />
+        </shape>
+    </item>
+    <item>
+        <inset android:drawable="@drawable/logo_macondo" android:inset="9%" />
+    </item>
+</layer-list>
