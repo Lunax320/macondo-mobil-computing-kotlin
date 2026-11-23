@@ -44,7 +44,6 @@ internal fun MacondoApp(
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
     var restaurando by remember { mutableStateOf(true) }
-    var abrirPortalRestaurado by remember { mutableStateOf(false) }
     var capacidades by remember { mutableStateOf(CapacidadesApi()) }
 
     LaunchedEffect(descubrimiento) { capacidades = descubrimiento.consultar() }
@@ -52,7 +51,6 @@ internal fun MacondoApp(
     LaunchedEffect(Unit) {
         try {
             cuentas.restaurar()
-            abrirPortalRestaurado = cuentas.sesion.value != null
         } finally {
             restaurando = false
         }
@@ -72,13 +70,6 @@ internal fun MacondoApp(
     LaunchedEffect(sesion?.id, actual) {
         val session = sesion
         val ruta = actual ?: return@LaunchedEffect
-        if (abrirPortalRestaurado) {
-            abrirPortalRestaurado = false
-            if (session != null && ruta == Routes.inicio) {
-                nav.reiniciar(Routes.portal(session))
-                return@LaunchedEffect
-            }
-        }
         if (session == null && Routes.protegida(ruta)) {
             nav.reiniciar(Routes.login())
         } else if (session != null && ruta == Routes.login) {
