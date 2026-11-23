@@ -26,6 +26,8 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.macondo.ui.ScreenModel
 import com.example.macondo.ui.ScreenState
+import com.example.macondo.ui.theme.AzulProfundoMacondo
+import com.example.macondo.ui.theme.DoradoMacondo
 import java.math.BigDecimal
 import java.text.NumberFormat
 import java.time.LocalDate
@@ -56,6 +58,7 @@ fun Page(
 fun <T> RemotePage(
     titulo: String,
     model: ScreenModel<T>,
+    pie: @Composable ColumnScope.(ScreenState<T>) -> Unit = {},
     contenido: @Composable ColumnScope.(T, ScreenState<T>) -> Unit
 ) {
     val state by model.estado.collectAsStateWithLifecycle()
@@ -77,6 +80,7 @@ fun <T> RemotePage(
             }
         }
         state.datos?.let { contenido(it, state) }
+        pie(state)
     }
 }
 
@@ -357,6 +361,7 @@ fun Confirmar(
     titulo: String,
     texto: String,
     confirmar: String,
+    destructiva: Boolean = false,
     cerrar: () -> Unit,
     accion: () -> Unit
 ) {
@@ -364,7 +369,13 @@ fun Confirmar(
         onDismissRequest = cerrar,
         title = { Text(titulo) },
         text = { Text(texto) },
-        confirmButton = { TextButton(onClick = { cerrar(); accion() }) { Text(confirmar) } },
+        confirmButton = {
+            TextButton(
+                onClick = { cerrar(); accion() },
+                colors = ButtonDefaults.textButtonColors(contentColor = if (destructiva) MaterialTheme.colorScheme.error
+                    else MaterialTheme.colorScheme.primary)
+            ) { Text(confirmar) }
+        },
         dismissButton = { TextButton(onClick = cerrar) { Text("Cancelar") } }
     )
 }
@@ -393,17 +404,17 @@ fun HotelImage(ruta: String?, descripcion: String?, modifier: Modifier = Modifie
 fun Hero() {
     Box(
         Modifier.fillMaxWidth().heightIn(min = 252.dp).clip(MaterialTheme.shapes.extraLarge)
-            .background(Color(0xFF183C4D))
+            .background(AzulProfundoMacondo)
     ) {
         HotelImage("/images/Playa.avif", null, Modifier.matchParentSize())
         Box(Modifier.matchParentSize().background(
-            Brush.verticalGradient(listOf(Color(0x15152932), Color(0xEA0D2937)))
+            Brush.verticalGradient(listOf(AzulProfundoMacondo.copy(alpha = 0.08f), AzulProfundoMacondo.copy(alpha = 0.92f)))
         ))
         Column(
             Modifier.align(Alignment.BottomStart).padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            Text("Cartagena de Indias", color = Color(0xFFF5D394), style = MaterialTheme.typography.labelLarge)
+            Text("Cartagena de Indias", color = DoradoMacondo, style = MaterialTheme.typography.labelLarge)
             Text("Hotel Macondo", color = Color.White, style = MaterialTheme.typography.displaySmall)
             Text("Donde el realismo mágico encuentra el mar", color = Color.White)
         }

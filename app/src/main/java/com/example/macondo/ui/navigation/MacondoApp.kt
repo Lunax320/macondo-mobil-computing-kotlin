@@ -216,7 +216,9 @@ internal fun MacondoApp(
             }
             composable(Routes.perfil, arguments = listOf(idArgument("id"))) { destino ->
                 ClienteDest(destino, sesion, abrirPerfil) { id ->
-                    PerfilScreen(cuentas, id, capacidades.verificacionCorreo) {
+                    PerfilScreen(cuentas, id, capacidades.verificacionCorreo, alCerrarSesion = {
+                        nav.reiniciar(Routes.inicio)
+                    }) {
                         nav.navigate(Routes.cambiarContrasena(id)) { launchSingleTop = true }
                     }
                 }

@@ -383,12 +383,27 @@ fun PagosScreen(reservas: ReservationRepository, clienteId: Long) {
 @Composable
 fun PerfilScreen(
     cuentas: AccountRepository, clienteId: Long, verificacionCorreo: Boolean,
+    alCerrarSesion: () -> Unit,
     abrirCambioContrasena: () -> Unit
 ) {
     val model = screenModel("perfil:$clienteId") { cuentas.perfil(clienteId) }
     var borrar by rememberSaveable { mutableStateOf(false) }
 
-    RemotePage("Mi perfil", model) { perfil, estado ->
+    RemotePage("Mi perfil", model, pie = { estado ->
+        val habilitado = !estado.guardando && !estado.cargando
+        Secondary("Cerrar sesión", enabled = habilitado) {
+            model.ejecutar("Sesión cerrada", recargar = false) {
+                cuentas.salir()
+                alCerrarSesion()
+            }
+        }
+        if (estado.datos != null) {
+            TextButton(
+                enabled = habilitado, onClick = { borrar = true },
+                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+            ) { Text("Eliminar mi cuenta") }
+        }
+    }) { perfil, estado ->
         ClienteFields(perfil, soloGmail = verificacionCorreo) { solicitud, valido ->
             if (!perfil.correo.equals(solicitud.correo, ignoreCase = true)) {
                 Text(if (verificacionCorreo) "Verifica el correo nuevo antes de volver a iniciar sesión."
@@ -400,11 +415,10 @@ fun PerfilScreen(
         }
         HorizontalDivider()
         Secondary("Cambiar contraseña", enabled = !estado.guardando, onClick = abrirCambioContrasena)
-        TextButton(enabled = !estado.guardando, onClick = { borrar = true }) { Text("Eliminar mi cuenta") }
     }
     if (borrar) {
         Confirmar("Eliminar la cuenta", "Esta acción elimina tu cuenta de Hotel Macondo.", "Eliminar cuenta",
-            cerrar = { borrar = false }) {
+            destructiva = true, cerrar = { borrar = false }) {
             model.ejecutar("Cuenta eliminada", recargar = false) {
                 cuentas.borrarCuenta(clienteId)
                 cuentas.salir()
