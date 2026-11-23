@@ -381,13 +381,12 @@ fun PagosScreen(reservas: ReservationRepository, clienteId: Long) {
 }
 
 @Composable
-fun PerfilScreen(cuentas: AccountRepository, clienteId: Long, verificacionCorreo: Boolean = false) {
+fun PerfilScreen(
+    cuentas: AccountRepository, clienteId: Long, verificacionCorreo: Boolean,
+    abrirCambioContrasena: () -> Unit
+) {
     val model = screenModel("perfil:$clienteId") { cuentas.perfil(clienteId) }
-    var cambiarClave by rememberSaveable { mutableStateOf(false) }
     var borrar by rememberSaveable { mutableStateOf(false) }
-    var actual by remember { mutableStateOf("") }
-    var nueva by remember { mutableStateOf("") }
-    var confirmacion by remember { mutableStateOf("") }
 
     RemotePage("Mi perfil", model) { perfil, estado ->
         ClienteFields(perfil, soloGmail = verificacionCorreo) { solicitud, valido ->
@@ -400,24 +399,7 @@ fun PerfilScreen(cuentas: AccountRepository, clienteId: Long, verificacionCorreo
             }
         }
         HorizontalDivider()
-        SwitchField("Cambiar contraseña", cambiarClave, { cambiarClave = it }, "Muestra el formulario de actualización de clave.")
-        if (cambiarClave) {
-            FormSection("Actualizar contraseña") {
-                Field("Contraseña actual", actual, secret = true) { actual = it }
-                Field("Nueva contraseña", nueva, secret = true) { nueva = it }
-                val noCoinciden = confirmacion.isNotBlank() && nueva != confirmacion
-                Field("Confirmar nueva contraseña", confirmacion, secret = true, isError = noCoinciden,
-                    supportingText = if (noCoinciden) "Las contraseñas no coinciden." else null) { confirmacion = it }
-            }
-            Primary("Actualizar contraseña", actual.isNotBlank() && nueva.isNotBlank() &&
-                nueva == confirmacion && !estado.guardando) {
-                val solicitud = ClaveSolicitud(actual, nueva, confirmacion)
-                model.ejecutar("Contraseña actualizada", recargar = false) {
-                    cuentas.clave(clienteId, solicitud)
-                    actual = ""; nueva = ""; confirmacion = ""; cambiarClave = false
-                }
-            }
-        }
+        Secondary("Cambiar contraseña", enabled = !estado.guardando, onClick = abrirCambioContrasena)
         TextButton(enabled = !estado.guardando, onClick = { borrar = true }) { Text("Eliminar mi cuenta") }
     }
     if (borrar) {

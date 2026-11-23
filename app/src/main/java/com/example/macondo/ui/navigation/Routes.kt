@@ -23,6 +23,7 @@ internal object Routes {
     const val editarReserva = "cliente/{id}/reservas/{reservaId}/editar"
     const val detalleReserva = "cliente/{id}/reservas/{reservaId}?historial={historial}"
     const val perfil = "cliente/{id}/perfil"
+    const val cambiarContrasena = "cliente/{id}/perfil/contrasena"
 
     const val operador = "operador"
     const val operadorReservas = "operador/reservas"
@@ -73,4 +74,5 @@ internal object Routes {
     fun detalleReserva(id: Long, reservaId: Long, historial: Boolean = false) =
         "cliente/$id/reservas/$reservaId?historial=$historial"
     fun perfil(id: Long) = "cliente/$id/perfil"
+    fun cambiarContrasena(id: Long) = "cliente/$id/perfil/contrasena"
 }

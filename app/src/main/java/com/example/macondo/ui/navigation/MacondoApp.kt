@@ -215,7 +215,21 @@ internal fun MacondoApp(
                 ClienteDest(destino, sesion, abrirPerfil) { PagosScreen(reservas, it) }
             }
             composable(Routes.perfil, arguments = listOf(idArgument("id"))) { destino ->
-                ClienteDest(destino, sesion, abrirPerfil) { PerfilScreen(cuentas, it, capacidades.verificacionCorreo) }
+                ClienteDest(destino, sesion, abrirPerfil) { id ->
+                    PerfilScreen(cuentas, id, capacidades.verificacionCorreo) {
+                        nav.navigate(Routes.cambiarContrasena(id)) { launchSingleTop = true }
+                    }
+                }
+            }
+            composable(Routes.cambiarContrasena, arguments = listOf(idArgument("id"))) { destino ->
+                ClienteDest(destino, sesion, abrirPerfil) { id ->
+                    CambiarContrasenaScreen(cuentas, id,
+                        cancelar = { nav.popBackStack(Routes.perfil(id), inclusive = false) },
+                        alGuardar = {
+                            nav.popBackStack(Routes.perfil(id), inclusive = false)
+                            scope.launch { snackbar.showSnackbar("Contraseña actualizada.") }
+                        })
+                }
             }
             composable(Routes.nuevaReserva, arguments = listOf(idArgument("id"), idArgument("tipoId", opcional = true))) { destino ->
                 ClienteDest(destino, sesion, abrirPerfil) { id ->
