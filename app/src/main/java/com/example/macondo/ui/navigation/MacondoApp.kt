@@ -35,7 +35,8 @@ internal fun MacondoApp(
     reservas: ReservationRepository,
     operaciones: OperationsRepository,
     admin: AdminRepository,
-    descubrimiento: DescubrimientoApi
+    descubrimiento: DescubrimientoApi,
+    promociones: PromocionesRepository
 ) {
     val sesion by cuentas.sesion.collectAsStateWithLifecycle()
     val nav = rememberNavController()
@@ -134,7 +135,13 @@ internal fun MacondoApp(
                 InicioScreen(catalogo,
                     { nav.navigate(Routes.habitaciones) }, { nav.navigate(Routes.habitacion(it)) },
                     { nav.navigate(Routes.servicios) }, { nav.navigate(Routes.servicio(it)) },
-                    { nav.navigate(Routes.explorar) })
+                    { nav.navigate(Routes.explorar) },
+                    promociones.takeIf { capacidades.promocionesPublicas },
+                    { nav.navigate(Routes.promociones) })
+            }
+            composable(Routes.promociones) {
+                if (capacidades.promocionesPublicas) PromocionesScreen(promociones)
+                else Page("Promociones") { Text("Las promociones no están disponibles en este servidor.") }
             }
             composable(Routes.login, arguments = listOf(idArgument("tipoId", opcional = true))) {
                 LoginScreen(cuentas, capacidades.verificacionCorreo,

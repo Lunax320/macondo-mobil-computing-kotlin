@@ -30,6 +30,7 @@ import java.math.BigDecimal
 import java.text.NumberFormat
 import java.time.LocalDate
 import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.roundToInt
 
@@ -409,3 +410,9 @@ fun Hero() {
 fun moneda(valor: BigDecimal?): String = valor?.let {
     NumberFormat.getCurrencyInstance(Locale.forLanguageTag("es-CO")).format(it)
 } ?: "Sin precio"
+
+private val formatoFecha = DateTimeFormatter.ofPattern("d MMM yyyy", Locale.forLanguageTag("es-CO"))
+
+internal fun fechaVisible(fecha: String): String = runCatching {
+    LocalDate.parse(fecha).format(formatoFecha)
+}.getOrDefault(fecha)

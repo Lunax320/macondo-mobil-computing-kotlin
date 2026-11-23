@@ -13,6 +13,7 @@ internal object Routes {
     const val servicios = "servicios"
     const val servicio = "servicios/{id}"
     const val explorar = "explorar"
+    const val promociones = "promociones"
 
     const val cliente = "cliente/{id}"
     const val activas = "cliente/{id}/reservas"

@@ -22,6 +22,8 @@ data class DetalleServicio(val servicio: Servicio, val relacionados: List<Servic
 data class HistorialCliente(val reservas: List<Reserva>, val comentarios: Map<Long, Comentario>?)
 data class FormularioReserva(val tipos: List<TipoHabitacion>, val reserva: Reserva?)
 
+class PromocionesRepository @Inject constructor(api: PromocionesApi) : PromocionesApi by api
+
 private suspend fun <T> opcionComentarios(operacion: suspend () -> T): T? = try {
     operacion()
 } catch (error: CancellationException) {

@@ -12,6 +12,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.macondo.data.Servicio
 import com.example.macondo.data.TipoHabitacion
+import com.example.macondo.data.repository.PromocionesRepository
 import com.example.macondo.data.repository.CatalogRepository
 import com.example.macondo.ui.components.*
 import com.example.macondo.ui.screenModel
@@ -23,7 +24,9 @@ fun InicioScreen(
     abrirTipo: (Long) -> Unit,
     abrirServicios: () -> Unit,
     abrirServicio: (Long) -> Unit,
-    explorar: () -> Unit
+    explorar: () -> Unit,
+    promociones: PromocionesRepository? = null,
+    abrirPromociones: () -> Unit = {}
 ) {
     val model = screenModel("inicio", catalogo::inicio)
     val estado by model.estado.collectAsStateWithLifecycle()
@@ -45,6 +48,7 @@ fun InicioScreen(
                     }
                 }
             }
+            if (promociones != null) PromocionesInicio(promociones, abrirPromociones)
             Section("Servicios")
             if (inicio.servicios.isEmpty()) Text("Por ahora no hay servicios recomendados.")
             inicio.servicios.take(3).forEach { ServicioCard(it, abrirServicio) }

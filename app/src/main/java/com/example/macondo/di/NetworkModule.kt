@@ -26,7 +26,8 @@ object NetworkModule {
             val peticion = cadena.request()
             val ruta = peticion.url.encodedPath
             val esAcceso = ruta.endsWith("/v3/api-docs") || ruta.endsWith("/cliente/registro") ||
-                ruta.contains("/auth/")
+                ruta.contains("/auth/") || ruta.endsWith("/promociones/publicas") ||
+                ruta.endsWith("/promociones/calcular")
             val token = if (esAcceso) null else sesiones.sesion.value?.token
             val autorizada = if (token == null) peticion
                 else peticion.newBuilder().header("Authorization", "Bearer $token").build()
@@ -47,4 +48,5 @@ object NetworkModule {
     @Provides fun reservas(retrofit: Retrofit): ReservationApi = retrofit.create()
     @Provides fun operaciones(retrofit: Retrofit): OperationsApi = retrofit.create()
     @Provides fun admin(retrofit: Retrofit): AdminApi = retrofit.create()
+    @Provides fun promociones(retrofit: Retrofit): PromocionesApi = retrofit.create()
 }
