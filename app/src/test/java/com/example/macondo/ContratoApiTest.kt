@@ -1,7 +1,10 @@
 package com.example.macondo
 
+import com.example.macondo.data.MensajeChatApi
 import com.example.macondo.data.ReservaSolicitud
+import com.example.macondo.data.SolicitudChat
 import com.example.macondo.data.remote.AccountApi
+import com.example.macondo.data.remote.ChatApi
 import com.example.macondo.data.remote.ReservationApi
 import com.google.gson.JsonParser
 import java.util.concurrent.atomic.AtomicReference
@@ -20,6 +23,31 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
 class ContratoApiTest {
+    @Test
+    fun chatEnviaElContextoYLeeLasAccionesDelBackend() = runBlocking {
+        val captura = AtomicReference<Request>()
+        val api = retrofit(captura, 200, """{"respuesta":"Abre Mis reservas","acciones":["PAGO_SEGURO"]}""")
+            .create(ChatApi::class.java)
+
+        val respuesta = api.conversar(SolicitudChat(
+            "¿Cómo pago?",
+            listOf(MensajeChatApi("user", "Necesito ayuda con mi reserva"))
+        ))
+
+        val peticion = captura.get()
+        assertEquals("POST", peticion.method)
+        assertEquals("/api/chat", peticion.url.encodedPath)
+        val buffer = Buffer()
+        requireNotNull(peticion.body).writeTo(buffer)
+        val json = JsonParser.parseString(buffer.readUtf8()).asJsonObject
+        assertEquals("¿Cómo pago?", json.get("mensaje").asString)
+        val mensaje = json.getAsJsonArray("historial").single().asJsonObject
+        assertEquals("user", mensaje.get("role").asString)
+        assertEquals("Necesito ayuda con mi reserva", mensaje.get("content").asString)
+        assertEquals("Abre Mis reservas", respuesta.respuesta)
+        assertEquals(listOf("PAGO_SEGURO"), respuesta.acciones)
+    }
+
     @Test
     fun disponibilidadDistingueFechasDeConsultaYExcluyeLaReservaEditada() = runBlocking {
         val captura = AtomicReference<Request>()

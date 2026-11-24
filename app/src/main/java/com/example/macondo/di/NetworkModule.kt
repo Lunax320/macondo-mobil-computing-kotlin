@@ -4,6 +4,7 @@ import com.example.macondo.BuildConfig
 import com.example.macondo.data.remote.*
 import com.example.macondo.data.session.SessionStore
 import com.google.gson.Gson
+import java.util.concurrent.TimeUnit
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -25,6 +26,10 @@ object NetworkModule {
         val cliente = OkHttpClient.Builder().addInterceptor { cadena ->
             val peticion = cadena.request()
             val ruta = peticion.url.encodedPath
+            if (ruta.endsWith("/chat")) {
+                // El modelo del backend puede tardar hasta 120 segundos en responder.
+                return@addInterceptor cadena.withReadTimeout(130, TimeUnit.SECONDS).proceed(peticion)
+            }
             val esAcceso = ruta.endsWith("/v3/api-docs") || ruta.endsWith("/cliente/registro") ||
                 ruta.contains("/auth/") || ruta.endsWith("/promociones/publicas") ||
                 ruta.endsWith("/promociones/calcular")
@@ -49,4 +54,5 @@ object NetworkModule {
     @Provides fun operaciones(retrofit: Retrofit): OperationsApi = retrofit.create()
     @Provides fun admin(retrofit: Retrofit): AdminApi = retrofit.create()
     @Provides fun promociones(retrofit: Retrofit): PromocionesApi = retrofit.create()
+    @Provides fun chat(retrofit: Retrofit): ChatApi = retrofit.create()
 }

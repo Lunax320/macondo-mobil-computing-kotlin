@@ -1,11 +1,12 @@
 package com.example.macondo.ui.navigation
 
 import android.net.Uri
+import com.example.macondo.data.AccionChat
 import com.example.macondo.data.Sesion
 
 internal object Routes {
     const val inicio = "inicio"
-    const val login = "login?tipoId={tipoId}"
+    const val login = "login?tipoId={tipoId}&accion={accion}"
     const val registro = "registro"
     const val recuperarContrasena = "recuperar-contrasena"
     const val habitaciones = "habitaciones"
@@ -14,6 +15,8 @@ internal object Routes {
     const val servicio = "servicios/{id}"
     const val explorar = "explorar"
     const val promociones = "promociones"
+    const val chat = "chat"
+    const val configuracion = "configuracion"
 
     const val cliente = "cliente/{id}"
     const val activas = "cliente/{id}/reservas"
@@ -41,6 +44,7 @@ internal object Routes {
     const val adminNuevoServicio = "admin/servicios/nuevo"
     const val adminEditarServicio = "admin/servicios/editar/{id}"
     const val adminOperadores = "admin/operadores"
+    const val adminNuevoOperador = "admin/operadores/nuevo"
     const val adminPromociones = "admin/promociones"
     const val adminPromocionForm = "admin/promociones/form?id={id}"
 
@@ -61,7 +65,10 @@ internal object Routes {
     fun protegida(ruta: String) =
         ruta.startsWith("cliente/") || ruta.startsWith("operador") || ruta.startsWith("admin")
 
-    fun login(tipoId: Long? = null) = tipoId?.let { "login?tipoId=$it" } ?: "login"
+    fun login(tipoId: Long? = null, accion: AccionChat? = null): String {
+        val parametros = listOfNotNull(tipoId?.let { "tipoId=$it" }, accion?.let { "accion=${it.name}" })
+        return if (parametros.isEmpty()) "login" else "login?" + parametros.joinToString("&")
+    }
     fun habitacion(id: Long) = "habitaciones/$id"
     fun servicio(id: Long) = "servicios/$id"
     fun cliente(id: Long) = "cliente/$id"

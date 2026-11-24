@@ -23,12 +23,14 @@ internal fun NavGraphBuilder.staffRoutes(
     admin: AdminRepository,
     catalogo: CatalogRepository,
     promociones: PromocionesRepository,
-    promocionesDisponibles: () -> Boolean
+    promocionesDisponibles: () -> Boolean,
+    altaOperadoresDisponible: () -> Boolean,
+    cerrarSesion: () -> Unit
 ) {
     composable(Routes.operador) {
         StaffDest(sesion(), nav) {
             OperadorScreen({ nav.navigate(Routes.operadorReservas) }, { nav.navigate(Routes.buscarCuenta) },
-                { nav.navigate(Routes.checkout()) })
+                { nav.navigate(Routes.checkout()) }, cerrarSesion)
         }
     }
     composable(Routes.operadorReservas) {
@@ -71,7 +73,8 @@ internal fun NavGraphBuilder.staffRoutes(
             AdminScreen(admin, { nav.navigate(Routes.adminHabitaciones) }, { nav.navigate(Routes.adminTipos) },
                 { nav.navigate(Routes.adminServicios) }, { nav.navigate(Routes.adminOperadores) },
                 { nav.navigate(Routes.operador) },
-                if (promocionesDisponibles()) ({ nav.navigate(Routes.adminPromociones) }) else null)
+                if (promocionesDisponibles()) ({ nav.navigate(Routes.adminPromociones) }) else null,
+                cerrarSesion)
         }
     }
     composable(Routes.adminPromociones) {
@@ -126,7 +129,18 @@ internal fun NavGraphBuilder.staffRoutes(
         }
     }
     composable(Routes.adminOperadores) {
-        StaffDest(sesion(), nav, administrador = true) { AdminOperadoresScreen(admin) }
+        StaffDest(sesion(), nav, administrador = true) {
+            AdminOperadoresScreen(admin, altaOperadoresDisponible()) { nav.navigate(Routes.adminNuevoOperador) }
+        }
+    }
+    composable(Routes.adminNuevoOperador) {
+        StaffDest(sesion(), nav, administrador = true) {
+            if (altaOperadoresDisponible()) {
+                NuevoOperadorScreen(admin) { nav.reiniciarListado(Routes.adminOperadores) }
+            } else {
+                Page("Nuevo operador") { Text("El servidor todavía no admite el alta por correo.") }
+            }
+        }
     }
 }
 

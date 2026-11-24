@@ -193,8 +193,8 @@ interface AdminApi {
     @GET("operador")
     suspend fun operadores(): List<Operador>
 
-    @POST("operador")
-    suspend fun crearOperador(@Body operador: OperadorSolicitud): Operador
+    @POST("operador/cuentas")
+    suspend fun crearOperador(@Body operador: OperadorCuentaSolicitud): Operador
 
     @PUT("operador/estado/{id}")
     suspend fun cambiarOperador(@Path("id") id: Long): Operador

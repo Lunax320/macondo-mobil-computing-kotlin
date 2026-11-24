@@ -1,6 +1,7 @@
 package com.example.macondo.ui.screens
 
 import androidx.activity.compose.BackHandler
+import android.util.Patterns
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -24,7 +25,8 @@ fun AdminScreen(
     servicios: () -> Unit,
     operadores: () -> Unit,
     operacion: () -> Unit,
-    promociones: (() -> Unit)? = null
+    promociones: (() -> Unit)? = null,
+    salir: () -> Unit
 ) {
     val model = screenModel("admin-inicio") { Unit }
     var comentarioId by rememberSaveable { mutableStateOf("") }
@@ -42,6 +44,7 @@ fun AdminScreen(
             val id = comentarioId.toLongOrNull() ?: return@Secondary
             model.ejecutar("Comentario publicado", recargar = false) { admin.publicarComentario(id) }
         }
+        TextButton(onClick = salir) { Text("Cerrar sesión") }
     }
 }
 
@@ -54,8 +57,8 @@ fun AdminHabitacionesScreen(admin: AdminRepository, editar: (Long) -> Unit, nuev
         if (habitaciones.isEmpty()) Text("No hay habitaciones registradas.")
         habitaciones.forEach { habitacion ->
             Panel {
-                Section("${habitacion.numero} · ${habitacion.nombre}")
-                Text("${habitacion.estado} · ${habitacion.capacidad} huéspedes")
+                Section("${habitacion.numero} - ${habitacion.nombre}")
+                Text("${habitacion.estado}, ${habitacion.capacidad} huéspedes")
                 habitacion.tipoHabitacion?.let { Text(it.nombre) }
                 Secondary("Editar") { editar(habitacion.id) }
                 Secondary("Cambiar estado", !estado.guardando) {
@@ -160,7 +163,7 @@ fun AdminTiposScreen(admin: AdminRepository, catalogo: CatalogRepository) {
             tipos.forEach { tipo ->
                 Panel {
                     Section(tipo.nombre)
-                    Text("${tipo.capacidadPersonas} huéspedes · ${moneda(tipo.precioNoche)}")
+                    Text("${tipo.capacidadPersonas} huéspedes, ${moneda(tipo.precioNoche)}")
                     Secondary("Editar", !estado.guardando) { seleccionado = tipo.id; editando = true }
                     TextButton(onClick = { borrar = tipo }, enabled = !estado.guardando) { Text("Eliminar") }
                 }
@@ -210,7 +213,7 @@ fun AdminServiciosScreen(admin: AdminRepository, editar: (Long) -> Unit, nuevo: 
         servicios.forEach { servicio ->
             Panel {
                 Section(servicio.nombre)
-                Text("${if (servicio.activo) "Activo" else "Inactivo"} · ${moneda(servicio.precio)}")
+                Text("${if (servicio.activo) "Activo" else "Inactivo"}, ${moneda(servicio.precio)}")
                 servicio.id?.let { id ->
                     Secondary("Editar") { editar(id) }
                     Secondary(if (servicio.activo) "Desactivar" else "Activar", !estado.guardando) {
@@ -282,25 +285,20 @@ fun AdminServicioFormScreen(admin: AdminRepository, catalogo: CatalogRepository,
 }
 
 @Composable
-fun AdminOperadoresScreen(admin: AdminRepository) {
+internal fun AdminOperadoresScreen(admin: AdminRepository, altaDisponible: Boolean, crear: () -> Unit) {
     val model = screenModel("admin-operadores", admin::operadores)
-    var nombre by rememberSaveable { mutableStateOf("") }
     var borrar by remember { mutableStateOf<Operador?>(null) }
     RemotePage("Operadores", model) { operadores, estado ->
-        FormSection("Invitar operador", "Se enviarán las credenciales de acceso al nuevo operador.") {
-            Field("Nombre completo", nombre) { if (it.length <= 100) nombre = it }
-            Primary("Crear operador", nombre.isNotBlank() && !estado.guardando) {
-                val valor = nombre.trim()
-                model.ejecutar("Operador creado") {
-                    admin.crearOperador(OperadorSolicitud(valor))
-                    nombre = ""
-                }
-            }
+        if (altaDisponible) {
+            Primary("Crear cuenta de operador", enabled = !estado.guardando, onClick = crear)
+        } else {
+            Text("El servidor todavía no admite el alta por correo.", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         if (operadores.isEmpty()) Text("No hay operadores registrados.")
         operadores.forEach { operador ->
             Panel {
                 Section(operador.nombre)
+                operador.correo?.let { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 Text(if (operador.activo) "Activo" else "Inactivo")
                 Secondary(if (operador.activo) "Desactivar" else "Activar", !estado.guardando) {
                     model.ejecutar("Estado actualizado") { admin.cambiarOperador(operador.id) }
@@ -310,8 +308,57 @@ fun AdminOperadoresScreen(admin: AdminRepository) {
         }
     }
     borrar?.let { operador ->
-        Confirmar("Eliminar operador", operador.nombre, "Eliminar", cerrar = { borrar = null }) {
+        Confirmar("Eliminar operador", operador.correo ?: operador.nombre, "Eliminar", destructiva = true,
+            cerrar = { borrar = null }) {
             model.ejecutar("Operador eliminado") { admin.borrarOperador(operador.id) }
+        }
+    }
+}
+
+@Composable
+internal fun NuevoOperadorScreen(admin: AdminRepository, alCrear: () -> Unit) {
+    val model = screenModel("nuevo-operador") { Unit }
+    var correo by rememberSaveable { mutableStateOf("") }
+    var nombre by rememberSaveable { mutableStateOf("") }
+    var contrasena by remember { mutableStateOf("") }
+    var confirmar by remember { mutableStateOf("") }
+
+    RemotePage("Nuevo operador", model) { _, estado ->
+        val direccion = correo.trim()
+        val correoValido = direccion.length <= 255 && Patterns.EMAIL_ADDRESS.matcher(direccion).matches()
+        val nombreValido = nombre.trim().length in 1..100
+        val claveValida = contrasena.codePointCount(0, contrasena.length) >= 12 &&
+            contrasena.encodeToByteArray().size <= 72 && contrasena.isNotBlank()
+        val coinciden = contrasena == confirmar
+
+        FormSection("Datos de acceso", "El operador entrará por Iniciar sesión con este correo.") {
+            Field(
+                "Correo electrónico", correo, tipo = KeyboardType.Email,
+                isError = correo.isNotBlank() && !correoValido,
+                supportingText = if (correo.isNotBlank() && !correoValido) "Escribe un correo válido." else null
+            ) { correo = it }
+            Field("Nombre para mostrar", nombre, isError = nombre.length > 100) { nombre = it }
+            Field(
+                "Contraseña inicial", contrasena, secret = true,
+                isError = contrasena.isNotEmpty() && !claveValida,
+                supportingText = "Usa al menos 12 caracteres."
+            ) { contrasena = it }
+            Field(
+                "Confirmar contraseña", confirmar, secret = true,
+                isError = confirmar.isNotEmpty() && !coinciden,
+                supportingText = if (confirmar.isNotEmpty() && !coinciden) "Las contraseñas no coinciden." else null
+            ) { confirmar = it }
+        }
+        Text("Entrega la contraseña inicial al operador por un canal seguro.",
+            color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
+        Primary("Crear cuenta", correoValido && nombreValido && claveValida && coinciden && !estado.guardando) {
+            val solicitud = OperadorCuentaSolicitud(direccion, nombre.trim(), contrasena)
+            model.ejecutar("Cuenta creada", recargar = false) {
+                admin.crearOperador(solicitud)
+                contrasena = ""
+                confirmar = ""
+                alCrear()
+            }
         }
     }
 }

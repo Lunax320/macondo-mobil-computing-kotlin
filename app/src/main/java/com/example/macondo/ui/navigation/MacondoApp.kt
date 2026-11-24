@@ -9,22 +9,31 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavController
 import androidx.navigation.NavType
 import androidx.navigation.compose.*
 import androidx.navigation.navArgument
+import com.example.macondo.R
+import com.example.macondo.data.AccionChat
 import com.example.macondo.data.Sesion
 import com.example.macondo.data.remote.CapacidadesApi
+import com.example.macondo.data.remote.ChatApi
 import com.example.macondo.data.remote.DescubrimientoApi
 import com.example.macondo.data.repository.*
+import com.example.macondo.ui.chat.ChatViewModel
 import com.example.macondo.ui.components.HotelImage
 import com.example.macondo.ui.components.Page
 import com.example.macondo.ui.components.Primary
 import com.example.macondo.ui.screens.*
+import com.example.macondo.ui.theme.Apariencia
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -36,13 +45,18 @@ internal fun MacondoApp(
     operaciones: OperationsRepository,
     admin: AdminRepository,
     descubrimiento: DescubrimientoApi,
-    promociones: PromocionesRepository
+    promociones: PromocionesRepository,
+    chat: ChatApi,
+    apariencia: Apariencia,
+    cambiarApariencia: (Apariencia) -> Unit
 ) {
     val sesion by cuentas.sesion.collectAsStateWithLifecycle()
     val nav = rememberNavController()
     val entrada by nav.currentBackStackEntryAsState()
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
+    val chatModel: ChatViewModel = viewModel(factory = viewModelFactory { initializer { ChatViewModel(chat) } })
+    val temaActual by rememberUpdatedState(apariencia)
     var restaurando by remember { mutableStateOf(true) }
     var capacidades by remember { mutableStateOf(CapacidadesApi()) }
 
@@ -63,9 +77,20 @@ internal fun MacondoApp(
 
     val actual = entrada?.destination?.route
     val puedeVolver = nav.previousBackStackEntry != null
+    val pestanaActual = Pestana.paraRuta(actual)
+    val tecladoVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
     val abrirPerfil = {
         nav.navigate(Routes.portal(sesion)) { launchSingleTop = true }
     }
+    val cerrarSesion: () -> Unit = {
+        scope.launch {
+            cuentas.salir()
+            chatModel.limpiar()
+            nav.reiniciar(Routes.inicio)
+            snackbar.showSnackbar("Sesión cerrada.")
+        }
+    }
+    LaunchedEffect(sesion?.id) { chatModel.cambiarUsuario(sesion?.id) }
 
     LaunchedEffect(sesion?.id, actual) {
         val session = sesion
@@ -74,12 +99,15 @@ internal fun MacondoApp(
             nav.reiniciar(Routes.login())
         } else if (session != null && ruta == Routes.login) {
             val tipoId = entrada?.arguments?.getLong("tipoId")?.takeIf { it > 0 }
+            val accion = AccionChat.desdeId(entrada?.arguments?.getString("accion"))
+            val destinoChat = accion?.destino(session)?.ruta
+            nav.reiniciar(Routes.portal(session))
             val id = session.cliente?.id
-            if (id != null) {
-                nav.reiniciar(Routes.cliente(id))
-                if (tipoId != null) nav.navigate(Routes.nuevaReserva(id, tipoId))
-            } else {
-                nav.reiniciar(Routes.portal(session))
+            when {
+                destinoChat != null -> nav.navigate(destinoChat) { launchSingleTop = true }
+                id != null && tipoId != null && session.tiene("CLIENTE") ->
+                    nav.navigate(Routes.nuevaReserva(id, tipoId))
+                else -> Unit
             }
         }
     }
@@ -89,30 +117,50 @@ internal fun MacondoApp(
         topBar = {
             TopAppBar(
                 title = {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        HotelImage("/images/logo.png", null, Modifier.size(26.dp))
-                        Text("Macondo", style = MaterialTheme.typography.titleLarge)
+                    if (actual == Routes.configuracion) {
+                        Text("Apariencia", style = MaterialTheme.typography.titleLarge)
+                    } else if (actual == Routes.explorar) {
+                        Text("Recorrido 3D", style = MaterialTheme.typography.titleLarge)
+                    } else {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            HotelImage("/images/logo.png", null, Modifier.size(26.dp))
+                            Text("Macondo", style = MaterialTheme.typography.titleLarge)
+                        }
+                    }
+                },
+                navigationIcon = {
+                    if (actual == Routes.configuracion || actual == Routes.explorar) {
+                        IconButton(onClick = {
+                            if (!nav.popBackStack()) nav.reiniciar(Routes.inicio)
+                        }) {
+                            Icon(painterResource(R.drawable.ic_arrow_back), "Volver")
+                        }
+                    }
+                },
+                actions = {
+                    if (actual != null && actual != Routes.configuracion) {
+                        IconButton(onClick = {
+                            nav.navigate(Routes.configuracion) { launchSingleTop = true }
+                        }) {
+                            Icon(painterResource(R.drawable.ic_settings), "Configurar apariencia")
+                        }
                     }
                 }
             )
         },
         bottomBar = {
-            if (actual != null && ((!Routes.protegida(actual) && actual !in setOf(Routes.login, Routes.registro, Routes.recuperarContrasena)) ||
-                    actual in setOf(Routes.cliente, Routes.operador, Routes.admin))) {
-                Surface(color = MaterialTheme.colorScheme.surfaceVariant) {
-                    Row(
-                        Modifier.fillMaxWidth().navigationBarsPadding()
-                    ) {
-                        NavItem("Inicio") { nav.inicio() }
-                        NavItem("Habitaciones") { nav.navigate(Routes.habitaciones) { launchSingleTop = true } }
-                        NavItem("Servicios") { nav.navigate(Routes.servicios) { launchSingleTop = true } }
-                        NavItem(if (sesion == null) "Entrar" else "Cuenta", abrirPerfil)
+            if (pestanaActual != null && !tecladoVisible) {
+                MacondoNavigationBar(pestanaActual, if (sesion == null) "Iniciar sesión" else "Mi cuenta") { tab ->
+                    if (tab == Pestana.CUENTA) {
+                        if (actual != Routes.login || sesion != null) nav.abrirPrincipal(Routes.portal(sesion))
+                    } else {
+                        nav.abrirPrincipal(tab.ruta)
                     }
                 }
             }
         }
     ) { padding ->
-        Box(Modifier.fillMaxSize().padding(padding)) {
+        Box(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)) {
             NavHost(
                 nav,
                 startDestination = Routes.inicio,
@@ -134,7 +182,14 @@ internal fun MacondoApp(
                 if (capacidades.promocionesPublicas) PromocionesScreen(promociones)
                 else Page("Promociones") { Text("Las promociones no están disponibles en este servidor.") }
             }
-            composable(Routes.login, arguments = listOf(idArgument("tipoId", opcional = true))) {
+            composable(
+                Routes.login,
+                arguments = listOf(idArgument("tipoId", opcional = true), navArgument("accion") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                })
+            ) {
                 LoginScreen(cuentas, capacidades.verificacionCorreo,
                     recuperar = if (capacidades.recuperarContrasena) ({ nav.navigate(Routes.recuperarContrasena) }) else null
                 ) { nav.navigate(Routes.registro) }
@@ -163,15 +218,28 @@ internal fun MacondoApp(
                 DetalleServicioScreen(catalogo, destino.id()) { nav.navigate(Routes.servicio(it)) }
             }
             composable(Routes.explorar) { ExplorarScreen() }
+            composable(Routes.chat) {
+                ChatScreen(chatModel, sesion) { ruta ->
+                    nav.navigate(ruta) { launchSingleTop = true }
+                }
+            }
+            composable(Routes.configuracion) {
+                ConfiguracionScreen(temaActual, cambiarApariencia)
+            }
 
-            staffRoutes(nav, { sesion }, operaciones, admin, catalogo, promociones) { capacidades.administrarPromociones }
+            staffRoutes(
+                nav, { sesion }, operaciones, admin, catalogo, promociones,
+                promocionesDisponibles = { capacidades.administrarPromociones },
+                altaOperadoresDisponible = { capacidades.altaOperadoresPorCorreo },
+                cerrarSesion = cerrarSesion
+            )
 
             composable(Routes.cliente, arguments = listOf(idArgument("id"))) { destino ->
                 ClienteDest(destino, sesion, abrirPerfil) { id ->
                     val cliente = requireNotNull(sesion?.cliente)
                     PortalClienteScreen(cliente, { nav.navigate(Routes.activas(id)) },
                         { nav.navigate(Routes.nuevaReserva(id)) }, { nav.navigate(Routes.historial(id)) },
-                        { nav.navigate(Routes.pagos(id)) }, { nav.navigate(Routes.perfil(id)) })
+                        { nav.navigate(Routes.pagos(id)) }, { nav.navigate(Routes.perfil(id)) }, cerrarSesion)
                 }
             }
             composable(Routes.activas, arguments = listOf(idArgument("id"))) { destino ->
@@ -278,17 +346,6 @@ private fun Modifier.backSwipeEdge(nav: NavController, desdeDerecha: Boolean) = 
 }
 
 @Composable
-private fun RowScope.NavItem(label: String, abrir: () -> Unit) {
-    TextButton(
-        onClick = abrir,
-        modifier = Modifier.weight(1f).heightIn(min = 48.dp),
-        contentPadding = PaddingValues(horizontal = 2.dp, vertical = 6.dp)
-    ) {
-        Text(label, textAlign = TextAlign.Center, style = MaterialTheme.typography.labelMedium)
-    }
-}
-
-@Composable
 private fun ClienteDest(entrada: NavBackStackEntry, sesion: Sesion?, volver: () -> Unit, contenido: @Composable (Long) -> Unit) {
     val clienteId = sesion?.cliente?.id
     if (clienteId != null && entrada.id() == clienteId && sesion.tiene("CLIENTE")) contenido(clienteId)
@@ -309,9 +366,10 @@ internal fun NavController.reiniciar(ruta: String) {
     }
 }
 
-private fun NavController.inicio() {
-    navigate(Routes.inicio) {
-        popUpTo(graph.startDestinationId)
-        launchSingleTop = true
-    }
+private fun NavController.abrirPrincipal(ruta: String) {
+    if (currentDestination?.route == ruta) return
+    if (currentDestination?.route != Routes.inicio &&
+        !popBackStack(Routes.inicio, inclusive = false)
+    ) reiniciar(Routes.inicio)
+    if (ruta != Routes.inicio) navigate(ruta) { launchSingleTop = true }
 }
