@@ -70,7 +70,7 @@ internal fun NavGraphBuilder.staffRoutes(
 
     composable(Routes.admin) {
         StaffDest(sesion(), nav, administrador = true) {
-            AdminScreen(admin, { nav.navigate(Routes.adminHabitaciones) }, { nav.navigate(Routes.adminTipos) },
+            AdminScreen(admin, operaciones, { nav.navigate(Routes.adminHabitaciones) }, { nav.navigate(Routes.adminTipos) },
                 { nav.navigate(Routes.adminServicios) }, { nav.navigate(Routes.adminOperadores) },
                 { nav.navigate(Routes.operador) },
                 if (promocionesDisponibles()) ({ nav.navigate(Routes.adminPromociones) }) else null,
@@ -96,7 +96,7 @@ internal fun NavGraphBuilder.staffRoutes(
     composable(Routes.adminHabitaciones) {
         StaffDest(sesion(), nav, administrador = true) {
             AdminHabitacionesScreen(admin, { nav.navigate(Routes.adminEditarHabitacion(it)) },
-                { nav.navigate(Routes.adminNuevaHabitacion) })
+                { nav.navigate(Routes.adminNuevaHabitacion) }, { nav.navigate(Routes.habitacion(it)) })
         }
     }
     composable(Routes.adminNuevaHabitacion) {

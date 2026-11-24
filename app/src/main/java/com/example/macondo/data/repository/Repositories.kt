@@ -4,6 +4,7 @@ import com.example.macondo.data.*
 import com.example.macondo.data.remote.*
 import com.example.macondo.data.session.SessionStore
 import javax.inject.Inject
+import java.math.BigDecimal
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -80,15 +81,38 @@ class ReservationRepository @Inject constructor(
     private val catalogo: CatalogApi
 ) : ReservationApi by api {
     suspend fun detalle(clienteId: Long, reservaId: Long, historial: Boolean, cuentaDisponible: Boolean): ReservaDetalleCliente {
-        if (cuentaDisponible) return api.detalleCliente(clienteId, reservaId)
-        val reservas = if (historial) api.historial(clienteId) else api.activas(clienteId)
-        val reserva = reservas.firstOrNull { it.id == reservaId }
+        val detalle = if (cuentaDisponible) api.detalleCliente(clienteId, reservaId) else null
+        if (detalle?.descuentoPromocional != null) return detalle
+        val reserva = try {
+            val reservas = if (historial) api.historial(clienteId) else api.activas(clienteId)
+            reservas.firstOrNull { it.id == reservaId }
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            if (detalle != null) return detalle
+            throw error
+        }
+        if (detalle != null) {
+            return detalle.copy(
+                codigoPromocional = detalle.codigoPromocional ?: reserva?.codigoPromocional,
+                descuentoPromocional = reserva?.descuentoPromocional
+            )
+        }
+        reserva
             ?: throw IllegalStateException("La reserva ya no aparece en este listado.")
         return ReservaDetalleCliente(
             reserva.id, reserva.numeroReserva, reserva.fechaInicio, reserva.fechaFin, reserva.cantidadPersonas,
             reserva.estado, reserva.precioNoche, reserva.total, reserva.habitacion?.numero,
-            reserva.habitacion?.tipoHabitacion?.nombre, null
+            reserva.habitacion?.tipoHabitacion?.nombre, null, reserva.codigoPromocional, reserva.descuentoPromocional
         )
+    }
+
+    suspend fun iniciarPago(proveedor: ProveedorPago, clienteId: Long, reservaId: Long, monto: BigDecimal): CheckoutPago {
+        val solicitud = PagoCheckoutSolicitud(monto)
+        return when (proveedor) {
+            ProveedorPago.WOMPI -> api.iniciarWompi(clienteId, reservaId, solicitud)
+            ProveedorPago.MERCADO_PAGO -> api.iniciarMercadoPago(clienteId, reservaId, solicitud)
+        }
     }
 
     suspend fun formulario(clienteId: Long, reservaId: Long?): FormularioReserva = coroutineScope {

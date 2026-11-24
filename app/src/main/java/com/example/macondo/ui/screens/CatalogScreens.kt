@@ -1,14 +1,20 @@
 package com.example.macondo.ui.screens
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.macondo.R
@@ -18,6 +24,7 @@ import com.example.macondo.data.repository.PromocionesRepository
 import com.example.macondo.data.repository.CatalogRepository
 import com.example.macondo.ui.components.*
 import com.example.macondo.ui.screenModel
+import kotlinx.coroutines.launch
 
 @Composable
 fun InicioScreen(
@@ -33,49 +40,114 @@ fun InicioScreen(
     val model = screenModel("inicio", catalogo::inicio)
     val estado by model.estado.collectAsStateWithLifecycle()
     Page("") {
-        Hero()
-        Primary("Ver habitaciones", onClick = abrirCatalogo)
-        Secondary("Explorar el hotel", onClick = explorar)
-        if (promociones != null) PromocionesInicio(promociones, abrirPromociones)
+        Hero(abrirCatalogo)
         if (estado.cargando) LinearProgressIndicator(Modifier.fillMaxWidth())
         estado.error?.let {
             Text(it, color = MaterialTheme.colorScheme.error)
             Secondary("Reintentar", onClick = model::recargar)
         }
-        estado.datos?.let { inicio ->
-            if (inicio.tipos.isNotEmpty()) {
-                Section("Habitaciones")
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    items(inicio.tipos, key = { it.id ?: it.nombre }) { tipo ->
-                        Box(Modifier.width(256.dp)) { TipoCard(tipo, abrirTipo) }
-                    }
-                }
+        estado.datos?.tipos?.takeIf { it.isNotEmpty() }?.let { HabitacionesInicio(it, abrirTipo) }
+        if (promociones != null) PromocionesInicio(promociones, abrirPromociones)
+        Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = MaterialTheme.shapes.large) {
+            Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Conoce el hotel", style = MaterialTheme.typography.titleLarge)
+                Secondary("Abrir vista 3D", onClick = explorar)
             }
+        }
+        estado.datos?.let { inicio ->
             Section("Servicios")
             if (inicio.servicios.isEmpty()) Text("Por ahora no hay servicios recomendados.")
             inicio.servicios.take(3).forEach { ServicioCard(it, abrirServicio) }
             TextButton(onClick = abrirServicios) { Text("Todos los servicios") }
-            if (inicio.testimonios.isNotEmpty() || !inicio.comentarios.isNullOrEmpty()) Section("Experiencias de huéspedes")
-            inicio.testimonios.forEach { testimonio ->
-                Panel {
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        HotelImage(testimonio.imagen, null, Modifier.size(52.dp))
-                        Column {
-                            Text(testimonio.nombre, style = MaterialTheme.typography.titleMedium)
-                            testimonio.ciudad?.let { Text(it) }
+            if (inicio.testimonios.isNotEmpty() || !inicio.comentarios.isNullOrEmpty()) {
+                HorizontalDivider()
+                Section("Experiencias de huéspedes")
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    items(inicio.testimonios, key = { "testimonio:${it.id}" }) { testimonio ->
+                        Panel(Modifier.width(256.dp)) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                HotelImage(testimonio.imagen, null, Modifier.size(48.dp))
+                                Column {
+                                    Text(testimonio.nombre, style = MaterialTheme.typography.titleMedium)
+                                    testimonio.ciudad?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+                                }
+                            }
+                            testimonio.texto?.let { Text(it) }
+                            Text("${testimonio.estrellas} de 5", style = MaterialTheme.typography.labelMedium)
                         }
                     }
-                    testimonio.texto?.let { Text(it) }
-                    Text("${testimonio.estrellas} de 5")
+                    items(inicio.comentarios.orEmpty(), key = { "comentario:${it.id}" }) { comentario ->
+                        Panel(Modifier.width(256.dp)) {
+                            Text(comentario.nombre.orEmpty(), style = MaterialTheme.typography.titleMedium)
+                            Text(comentario.texto)
+                            Text("${comentario.calificacion} de 5", style = MaterialTheme.typography.labelMedium)
+                        }
+                    }
                 }
             }
-            inicio.comentarios.orEmpty().forEach { comentario ->
-                Panel {
-                    Text(comentario.nombre.orEmpty(), style = MaterialTheme.typography.titleMedium)
-                    Text(comentario.texto)
-                    Text("${comentario.calificacion} de 5")
+        }
+        CierreInicio(abrirCatalogo)
+    }
+}
+
+@Composable
+private fun HabitacionesInicio(tipos: List<TipoHabitacion>, abrirTipo: (Long) -> Unit) {
+    val carrusel = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+    val posicion = carrusel.firstVisibleItemIndex.coerceIn(tipos.indices)
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            "Nuestras habitaciones", Modifier.fillMaxWidth(),
+            style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center
+        )
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            if (tipos.size > 1) {
+                FilledTonalIconButton(
+                    onClick = { scope.launch { carrusel.animateScrollToItem((posicion - 1 + tipos.size) % tipos.size) } }
+                ) { Icon(painterResource(R.drawable.ic_arrow_back), "Habitación anterior") }
+            }
+            LazyRow(
+                modifier = Modifier.weight(1f).padding(horizontal = if (tipos.size > 1) 4.dp else 0.dp),
+                state = carrusel,
+                flingBehavior = rememberSnapFlingBehavior(carrusel),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(tipos, key = { it.id ?: it.nombre }) { tipo ->
+                    Box(Modifier.fillParentMaxWidth()) { TipoCard(tipo, abrirTipo) }
                 }
             }
+            if (tipos.size > 1) {
+                FilledTonalIconButton(
+                    onClick = { scope.launch { carrusel.animateScrollToItem((posicion + 1) % tipos.size) } }
+                ) { Icon(painterResource(R.drawable.ic_arrow_back), "Habitación siguiente", Modifier.rotate(180f)) }
+            }
+        }
+        if (tipos.size > 1) Text("${posicion + 1} de ${tipos.size}", style = MaterialTheme.typography.labelMedium)
+    }
+}
+
+@Composable
+private fun CierreInicio(abrirCatalogo: () -> Unit) {
+    val navegador = LocalUriHandler.current
+    val correo = "elhotelmacondo@gmail.com"
+    var sinAppCorreo by rememberSaveable { mutableStateOf(false) }
+    Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh, shape = MaterialTheme.shapes.large) {
+        Column(
+            Modifier.fillMaxWidth().padding(20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text("¿Listo para tu escapada?", style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center)
+            Button(onClick = abrirCatalogo) { Text("Reservar ahora") }
+            TextButton(onClick = {
+                try {
+                    navegador.openUri("mailto:$correo")
+                } catch (_: IllegalArgumentException) {
+                    sinAppCorreo = true
+                }
+            }) { Text("Escribir al hotel") }
+            if (sinAppCorreo) SelectionContainer { Text(correo, textAlign = TextAlign.Center) }
         }
     }
 }
@@ -132,7 +204,7 @@ private fun FiltrosHabitaciones(
 private fun TipoCard(tipo: TipoHabitacion, abrir: (Long) -> Unit, noches: Int? = null) {
     val id = tipo.id
     Card(onClick = { id?.let(abrir) }, enabled = id != null, modifier = Modifier.fillMaxWidth()) {
-        HotelImage(tipo.imagen, null, Modifier.fillMaxWidth().height(142.dp))
+        TipoHabitacionImagen(tipo.nombre, tipo.imagen, null, Modifier.fillMaxWidth().height(142.dp))
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Section(tipo.nombre)
             Text("Hasta ${tipo.capacidadPersonas} huéspedes")
@@ -149,7 +221,7 @@ private fun TipoCard(tipo: TipoHabitacion, abrir: (Long) -> Unit, noches: Int? =
 fun DetalleHabitacionScreen(catalogo: CatalogRepository, id: Long, reservar: (Long) -> Unit) {
     val model = screenModel("tipo:$id") { catalogo.tipo(id) }
     RemotePage("Habitación", model) { tipo, _ ->
-        HotelImage(tipo.imagen, tipo.nombre, Modifier.fillMaxWidth().aspectRatio(1.45f))
+        TipoHabitacionImagen(tipo.nombre, tipo.imagen, tipo.nombre, Modifier.fillMaxWidth().aspectRatio(1.45f))
         Section(tipo.nombre)
         tipo.descripcion?.let { Text(it, style = MaterialTheme.typography.bodyLarge) }
         Panel {

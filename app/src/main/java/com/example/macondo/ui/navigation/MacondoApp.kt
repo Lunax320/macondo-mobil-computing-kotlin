@@ -261,7 +261,7 @@ internal fun MacondoApp(
                         reservas, id, destino.id("reservaId"),
                         historial = destino.arguments?.getBoolean("historial") == true,
                         cuentaDisponible = capacidades.detalleReserva,
-                        pagoDisponible = capacidades.detalleReserva && capacidades.wompi
+                        proveedorPago = capacidades.proveedorPago
                     )
                 }
             }

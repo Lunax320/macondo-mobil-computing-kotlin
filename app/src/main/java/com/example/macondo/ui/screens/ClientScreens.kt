@@ -89,6 +89,7 @@ fun ReservaCard(
         Text(reserva.estado)
         reserva.habitacion?.let { Text("${it.nombre}, habitación ${it.numero}") }
         Text(moneda(reserva.total), style = MaterialTheme.typography.titleMedium)
+        DescuentoReserva(reserva.codigoPromocional, reserva.descuentoPromocional)
         acciones()
     }
 }

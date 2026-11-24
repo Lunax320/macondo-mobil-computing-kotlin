@@ -77,8 +77,13 @@ interface ReservationApi {
 
     @POST("reserva/cliente/{id}/{reservaId}/pago/wompi")
     suspend fun iniciarWompi(
-        @Path("id") id: Long, @Path("reservaId") reservaId: Long, @Body solicitud: PagoWompiSolicitud
-    ): CheckoutWompi
+        @Path("id") id: Long, @Path("reservaId") reservaId: Long, @Body solicitud: PagoCheckoutSolicitud
+    ): CheckoutPago
+
+    @POST("reserva/cliente/{id}/{reservaId}/pago/mercadopago")
+    suspend fun iniciarMercadoPago(
+        @Path("id") id: Long, @Path("reservaId") reservaId: Long, @Body solicitud: PagoCheckoutSolicitud
+    ): CheckoutPago
 
     @GET("reserva/cliente/{id}/activas")
     suspend fun activas(@Path("id") id: Long): List<Reserva>

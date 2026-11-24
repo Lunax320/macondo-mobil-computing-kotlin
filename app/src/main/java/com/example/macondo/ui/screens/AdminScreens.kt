@@ -6,12 +6,16 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.example.macondo.R
 import com.example.macondo.data.*
 import com.example.macondo.data.repository.AdminRepository
 import com.example.macondo.data.repository.CatalogRepository
+import com.example.macondo.data.repository.OperationsRepository
 import com.example.macondo.ui.components.*
 import com.example.macondo.ui.screenModel
 import kotlinx.coroutines.async
@@ -20,6 +24,7 @@ import kotlinx.coroutines.coroutineScope
 @Composable
 fun AdminScreen(
     admin: AdminRepository,
+    operaciones: OperationsRepository,
     habitaciones: () -> Unit,
     tipos: () -> Unit,
     servicios: () -> Unit,
@@ -31,6 +36,8 @@ fun AdminScreen(
     val model = screenModel("admin-inicio") { Unit }
     var comentarioId by rememberSaveable { mutableStateOf("") }
     RemotePage("Administración", model) { _, estado ->
+        OcupacionAdmin(admin, operaciones)
+        Section("Gestión del hotel")
         Primary("Habitaciones físicas", onClick = habitaciones)
         Secondary("Tipos de habitación", onClick = tipos)
         Secondary("Servicios", onClick = servicios)
@@ -49,27 +56,90 @@ fun AdminScreen(
 }
 
 @Composable
-fun AdminHabitacionesScreen(admin: AdminRepository, editar: (Long) -> Unit, nueva: () -> Unit) {
+fun AdminHabitacionesScreen(
+    admin: AdminRepository,
+    editar: (Long) -> Unit,
+    nueva: () -> Unit,
+    verTipo: (Long) -> Unit
+) {
     val model = screenModel("admin-habitaciones", admin::habitaciones)
     var borrar by remember { mutableStateOf<Habitacion?>(null) }
+    var cambiarEstado by remember { mutableStateOf<Habitacion?>(null) }
     RemotePage("Habitaciones físicas", model) { habitaciones, estado ->
-        Primary("Nueva habitación", onClick = nueva)
+        Button(onClick = nueva, modifier = Modifier.fillMaxWidth()) {
+            Icon(painterResource(R.drawable.ic_add), null)
+            Spacer(Modifier.width(8.dp))
+            Text("Nueva habitación")
+        }
         if (habitaciones.isEmpty()) Text("No hay habitaciones registradas.")
         habitaciones.forEach { habitacion ->
             Panel {
-                Section("${habitacion.numero} - ${habitacion.nombre}")
-                Text("${habitacion.estado}, ${habitacion.capacidad} huéspedes")
-                habitacion.tipoHabitacion?.let { Text(it.nombre) }
-                Secondary("Editar") { editar(habitacion.id) }
-                Secondary("Cambiar estado", !estado.guardando) {
-                    model.ejecutar("Estado actualizado") { admin.cambiarHabitacion(habitacion.id) }
+                val habilitada = habitacion.estado.equals("DISPONIBLE", ignoreCase = true)
+                val tipo = habitacion.tipoHabitacion
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    if (tipo != null) {
+                        TipoHabitacionImagen(tipo.nombre, tipo.imagen, null, Modifier.size(56.dp))
+                    }
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(habitacion.nombre, style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            listOfNotNull("N.º ${habitacion.numero}", tipo?.nombre, "${habitacion.capacidad} huéspedes")
+                                .joinToString(" · "),
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                        Text(
+                            if (habilitada) "Disponible" else "No disponible",
+                            color = if (habilitada) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.labelMedium
+                        )
+                    }
                 }
-                TextButton(onClick = { borrar = habitacion }, enabled = !estado.guardando) { Text("Eliminar") }
+                HorizontalDivider()
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.End)
+                ) {
+                    if (tipo != null) {
+                        FilledTonalIconButton(onClick = { verTipo(tipo.id) }) {
+                            Icon(painterResource(R.drawable.ic_eye), "Ver tipo de la habitación ${habitacion.numero}")
+                        }
+                    }
+                    FilledTonalIconButton(onClick = { editar(habitacion.id) }, enabled = !estado.guardando) {
+                        Icon(painterResource(R.drawable.ic_edit), "Editar habitación ${habitacion.numero}")
+                    }
+                    FilledTonalIconButton(onClick = { cambiarEstado = habitacion }, enabled = !estado.guardando) {
+                        Icon(
+                            painterResource(if (habilitada) R.drawable.ic_disable else R.drawable.ic_check),
+                            "${if (habilitada) "Deshabilitar" else "Habilitar"} habitación ${habitacion.numero}"
+                        )
+                    }
+                    FilledTonalIconButton(
+                        onClick = { borrar = habitacion },
+                        enabled = !estado.guardando,
+                        colors = IconButtonDefaults.filledTonalIconButtonColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer,
+                            contentColor = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                    ) {
+                        Icon(painterResource(R.drawable.ic_delete), "Eliminar habitación ${habitacion.numero}")
+                    }
+                }
             }
         }
     }
+    cambiarEstado?.let { habitacion ->
+        val habilitada = habitacion.estado.equals("DISPONIBLE", ignoreCase = true)
+        val accion = if (habilitada) "Deshabilitar" else "Habilitar"
+        Confirmar(
+            "$accion habitación ${habitacion.numero}",
+            if (habilitada) "Esta habitación dejará de aparecer como disponible." else "Esta habitación volverá a aparecer como disponible.",
+            accion, cerrar = { cambiarEstado = null }
+        ) {
+            model.ejecutar("Estado actualizado") { admin.cambiarHabitacion(habitacion.id) }
+        }
+    }
     borrar?.let { habitacion ->
-        Confirmar("Eliminar habitación", habitacion.nombre, "Eliminar", cerrar = { borrar = null }) {
+        Confirmar("Eliminar habitación", habitacion.nombre, "Eliminar", destructiva = true, cerrar = { borrar = null }) {
             model.ejecutar("Habitación eliminada") { admin.borrarHabitacion(habitacion.id) }
         }
     }

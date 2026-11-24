@@ -109,7 +109,7 @@ fun TipoHabitacionOption(tipo: TipoHabitacion, selected: Boolean, onClick: () ->
     ) {
         Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            HotelImage(tipo.imagen, tipo.nombre, Modifier.width(88.dp).height(82.dp))
+            TipoHabitacionImagen(tipo.nombre, tipo.imagen, null, Modifier.width(88.dp).height(82.dp))
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(tipo.nombre, style = MaterialTheme.typography.titleMedium)
                 Text("Hasta ${tipo.capacidadPersonas} huéspedes", style = MaterialTheme.typography.bodyMedium)
@@ -407,7 +407,16 @@ fun HotelImage(ruta: String?, descripcion: String?, modifier: Modifier = Modifie
 }
 
 @Composable
-fun Hero() {
+fun TipoHabitacionImagen(nombre: String, ruta: String?, descripcion: String?, modifier: Modifier = Modifier) {
+    val usaImagenCompartida = ruta?.trimStart('/')?.equals("images/HabitacionExecutive.avif", ignoreCase = true) == true
+    val imagen = if (nombre.equals("Superior", ignoreCase = true) && (ruta.isNullOrBlank() || usaImagenCompartida)) {
+        "/images/HabitacionSuperior.jpg"
+    } else ruta
+    HotelImage(imagen, descripcion, modifier)
+}
+
+@Composable
+fun Hero(verHabitaciones: () -> Unit) {
     Box(
         Modifier.fillMaxWidth().heightIn(min = 252.dp).clip(MaterialTheme.shapes.extraLarge)
             .background(AzulProfundoMacondo)
@@ -423,6 +432,11 @@ fun Hero() {
             Text("Cartagena de Indias", color = DoradoMacondo, style = MaterialTheme.typography.labelLarge)
             Text("Hotel Macondo", color = Color.White, style = MaterialTheme.typography.displaySmall)
             Text("Donde el realismo mágico encuentra el mar", color = Color.White)
+            Button(
+                onClick = verHabitaciones,
+                modifier = Modifier.padding(top = 8.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = DoradoMacondo, contentColor = AzulProfundoMacondo)
+            ) { Text("Ver habitaciones") }
         }
     }
 }

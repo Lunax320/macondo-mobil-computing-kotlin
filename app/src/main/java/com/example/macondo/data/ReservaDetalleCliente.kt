@@ -13,7 +13,9 @@ data class ReservaDetalleCliente(
     val total: BigDecimal?,
     val habitacion: String?,
     val tipoHabitacion: String?,
-    val cuenta: CuentaDetalleCliente?
+    val cuenta: CuentaDetalleCliente?,
+    val codigoPromocional: String? = null,
+    val descuentoPromocional: BigDecimal? = null
 )
 
 data class CuentaDetalleCliente(
@@ -25,9 +27,14 @@ data class CuentaDetalleCliente(
     val pagos: List<Pago>
 )
 
-data class PagoWompiSolicitud(val monto: BigDecimal)
+enum class ProveedorPago(val nombre: String) {
+    WOMPI("Wompi"),
+    MERCADO_PAGO("Mercado Pago");
+}
 
-data class CheckoutWompi(
+data class PagoCheckoutSolicitud(val monto: BigDecimal)
+
+data class CheckoutPago(
     val referencia: String,
     val checkoutUrl: String,
     val monto: BigDecimal,

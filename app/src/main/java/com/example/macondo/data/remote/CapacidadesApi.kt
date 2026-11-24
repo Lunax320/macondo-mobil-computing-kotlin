@@ -1,6 +1,6 @@
 package com.example.macondo.data.remote
 
-import com.google.gson.JsonObject
+import com.example.macondo.data.ProveedorPago
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
 
@@ -12,8 +12,17 @@ data class CapacidadesApi(
     val promocionesPublicas: Boolean = false,
     val calcularPromocion: Boolean = false,
     val administrarPromociones: Boolean = false,
-    val altaOperadoresPorCorreo: Boolean = false
-)
+    val altaOperadoresPorCorreo: Boolean = false,
+    val mercadoPago: Boolean = false
+) {
+    val proveedorPago: ProveedorPago?
+        get() = when {
+            !detalleReserva -> null
+            mercadoPago -> ProveedorPago.MERCADO_PAGO
+            wompi -> ProveedorPago.WOMPI
+            else -> null
+        }
+}
 
 class DescubrimientoApi @Inject constructor(private val api: CatalogApi) {
     suspend fun consultar(): CapacidadesApi = try {
@@ -29,7 +38,8 @@ class DescubrimientoApi @Inject constructor(private val api: CatalogApi) {
             calcularPromocion = expone("get", "promociones/calcular"),
             administrarPromociones = expone("get", "promociones") && expone("post", "promociones") &&
                 expone("put", "promociones/{id}") && expone("delete", "promociones/{id}"),
-            altaOperadoresPorCorreo = expone("post", "operador/cuentas")
+            altaOperadoresPorCorreo = expone("post", "operador/cuentas"),
+            mercadoPago = expone("post", "reserva/cliente/{id}/{reservaId}/pago/mercadopago")
         )
     } catch (error: CancellationException) {
         throw error

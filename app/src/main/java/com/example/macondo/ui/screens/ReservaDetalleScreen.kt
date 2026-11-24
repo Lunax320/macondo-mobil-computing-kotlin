@@ -11,7 +11,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import com.example.macondo.data.CuentaDetalleCliente
-import com.example.macondo.data.PagoWompiSolicitud
+import com.example.macondo.data.ProveedorPago
 import com.example.macondo.data.ReservaDetalleCliente
 import com.example.macondo.data.repository.ReservationRepository
 import com.example.macondo.ui.components.*
@@ -22,7 +22,7 @@ import java.net.URI
 @Composable
 fun ReservaDetalleScreen(
     reservas: ReservationRepository, clienteId: Long, reservaId: Long,
-    historial: Boolean, cuentaDisponible: Boolean, pagoDisponible: Boolean
+    historial: Boolean, cuentaDisponible: Boolean, proveedorPago: ProveedorPago?
 ) {
     val model = screenModel("detalle:$clienteId:$reservaId:$historial:$cuentaDisponible") {
         reservas.detalle(clienteId, reservaId, historial, cuentaDisponible)
@@ -38,18 +38,19 @@ fun ReservaDetalleScreen(
     }
     RemotePage("Detalle de reserva", model) { detalle, estado ->
         ResumenEstadia(detalle)
+        DescuentoReserva(detalle.codigoPromocional, detalle.descuentoPromocional)
         detalle.cuenta?.let { cuenta ->
             SaldoCuenta(cuenta) {
-                if (pagoDisponible && detalle.estado.equals("ACTIVA", ignoreCase = true) && cuenta.saldo.signum() > 0) {
-                    PagoWompiSection(
+                if (proveedorPago != null && detalle.estado.equals("ACTIVA", ignoreCase = true) && cuenta.saldo.signum() > 0) {
+                    PagoEnLineaSection(
                         saldo = cuenta.saldo,
+                        proveedor = proveedorPago,
                         habilitado = !estado.guardando && !estado.cargando && !esperandoRegreso
                     ) { monto ->
                         model.ejecutar("Consulta los pagos registrados al regresar.", recargar = false) {
-                            val checkout = reservas.iniciarWompi(clienteId, reservaId, PagoWompiSolicitud(monto))
+                            val checkout = reservas.iniciarPago(proveedorPago, clienteId, reservaId, monto)
                             val url = URI.create(checkout.checkoutUrl)
-                            require(url.scheme == "https" && url.host == "checkout.wompi.co" && url.userInfo == null &&
-                                (url.port == -1 || url.port == 443)) { "Dirección de checkout inválida." }
+                            require(url.esCheckoutSeguro(proveedorPago)) { "Dirección de checkout inválida." }
                             esperandoRegreso = true
                             try {
                                 navegador.openUri(url.toString())
@@ -62,7 +63,7 @@ fun ReservaDetalleScreen(
                     }
                 }
                 if (checkoutAbierto) {
-                    Text("La cuenta se actualiza cuando el hotel recibe la confirmación de Wompi.")
+                    Text("El saldo se actualiza cuando el hotel recibe la confirmación del pago.")
                     TextButton(onClick = {
                         esperandoRegreso = false
                         model.recargar()
@@ -76,7 +77,12 @@ fun ReservaDetalleScreen(
 }
 
 @Composable
-private fun PagoWompiSection(saldo: BigDecimal, habilitado: Boolean, pagar: (BigDecimal) -> Unit) {
+private fun PagoEnLineaSection(
+    saldo: BigDecimal,
+    proveedor: ProveedorPago,
+    habilitado: Boolean,
+    pagar: (BigDecimal) -> Unit
+) {
     var parcial by rememberSaveable { mutableStateOf(false) }
     var valor by rememberSaveable(saldo.toPlainString()) { mutableStateOf(saldo.toPlainString()) }
     val monto = if (parcial) valor.trim().replace(',', '.').toBigDecimalOrNull() else saldo
@@ -84,7 +90,20 @@ private fun PagoWompiSection(saldo: BigDecimal, habilitado: Boolean, pagar: (Big
     SwitchField("Pagar otro monto", parcial, { parcial = it })
     if (parcial) Field("Monto en COP", valor, tipo = KeyboardType.Decimal,
         isError = !valido, supportingText = if (valido) null else "Escribe un importe positivo, hasta el saldo.") { valor = it }
-    Primary("Continuar a Wompi", habilitado && valido) { monto?.let(pagar) }
+    Primary("Continuar a ${proveedor.nombre}", habilitado && valido) { monto?.let(pagar) }
+}
+
+private fun URI.esCheckoutSeguro(proveedor: ProveedorPago): Boolean {
+    if (!scheme.equals("https", ignoreCase = true) || userInfo != null || port !in listOf(-1, 443)) {
+        return false
+    }
+    val dominio = host?.lowercase() ?: return false
+    return when (proveedor) {
+        ProveedorPago.WOMPI -> dominio == "checkout.wompi.co"
+        ProveedorPago.MERCADO_PAGO -> listOf("mercadopago.com.co", "mercadopago.com").any {
+            dominio == it || dominio.endsWith(".$it")
+        }
+    }
 }
 
 @Composable
